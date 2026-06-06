@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Aura</title>
+    <!-- Use FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: #f9f0e4;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 400px;
+            height: 100vh;
+            position: relative;
+            background-color: #f9f0e4;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: absolute;
+            top: 0;
+            left: -250px;
+            width: 200px;
+            height: 100%;
+            background-color: #fff;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            transition: left 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .sidebar.open {
+            left: 0;
+        }
+        .sidebar-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .close-sidebar {
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .sidebar-logout {
+            margin-top: 20px;
+            padding: 12px;
+            background: #E47254;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+            display: none;
+        }
+        .overlay.open { display: block; }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            display: none;
+            padding-bottom: 80px; /* space for navbar */
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Top Header */
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        .profile-icon {
+            width: 40px; height: 40px; border-radius: 50%; border: 2px solid #000; background: #ddd;
+        }
+        .header-title { text-align: center; }
+        .header-title h2 { margin: 0; font-size: 20px; font-weight: 800; color: #000; }
+        .header-title p { margin: 2px 0 0; font-size: 12px; color: #666; }
+
+        /* Logout */
+        .logout-btn {
+            margin: 20px; padding: 6px 12px; border: 1px solid #000; border-radius: 8px; background: transparent; font-weight: bold; cursor: pointer;
+        }
+
+        /* Generic Header for other tabs */
+        .generic-header {
+            padding: 20px;
+            border-bottom: 1px solid #000;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        /* Cards */
+        .card {
+            background: #fff;
+            border: 2px dashed #000;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 0 20px 16px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .solid-card {
+            background: #fff;
+            border: 2px solid #000;
+            border-radius: 16px;
+            margin: 0 20px 16px;
+        }
+        .row { display: flex; border-bottom: 1px solid #000; padding: 12px; }
+        .row:last-child { border-bottom: none; }
+        .label { font-weight: bold; width: 120px; }
+        .val { flex: 1; color: #333; }
+
+        .attendance-card {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #fff; border: 2px solid #000; border-radius: 30px; padding: 16px 20px; margin: 0 20px 16px;
+        }
+        .status-circle {
+            width: 32px; height: 32px; border-radius: 50%; border: 2px solid #000; display: flex; align-items: center; justify-content: center; font-weight: bold;
+        }
+
+        /* Scanner */
+        .scanner-box { width: 250px; height: 250px; border: 2px solid #000; background: #000; margin: 40px auto; }
+        .scan-controls { display: flex; align-items: center; justify-content: center; gap: 20px; }
+        .light-btn { width: 40px; height: 60px; border: 2px solid #000; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: transparent; cursor: pointer; }
+        .light-inner { width: 30px; height: 30px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
+        .scan-btn { border: 2px solid #000; padding: 12px 40px; background: transparent; font-weight: bold; font-size: 16px; cursor: pointer; }
+
+        /* Profile */
+        .profile-container { padding: 0 20px; }
+        .prof-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .verify-btn { border: 1px solid #000; border-radius: 20px; padding: 6px 12px; font-size: 12px; font-weight: bold; background: transparent; }
+        .prof-photo { width: 80px; height: 80px; border: 2px solid #000; border-radius: 50%; margin: 20px auto; display: flex; align-items: center; justify-content: center; font-weight: bold;}
+        .p-input { width: 80%; margin: 0 auto 16px; display: block; border: 1px solid #000; padding: 8px 16px; text-align: center; box-sizing: border-box; background: #fff;}
+        .p-row { display: flex; width: 80%; margin: 0 auto 16px; align-items: center; gap: 10px; }
+        .p-row .p-input { width: 100%; margin: 0; }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0; width: 100%;
+            background: #fff;
+            border-top: 1px solid #eaeaea;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0 20px;
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; color: #666; cursor: pointer;
+        }
+        .nav-item.active { color: #E47254; font-weight: bold; }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; }
+        .nav-item span { font-size: 10px; }
+
+        #videoElement { width: 100%; height: 100%; object-fit: cover; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- Sidebar -->
+        <div class="overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                Menu
+                <span class="close-sidebar" onclick="toggleSidebar()">&times;</span>
+            </div>
+            <button class="sidebar-logout" onclick="logout()">Log out</button>
+        </div>
+
+        <!-- 1. Home Tab -->
+        <div id="tab-home" class="tab-content active">
+            <div class="top-header">
+                <div class="profile-icon" onclick="toggleSidebar()" style="cursor: pointer;"></div>
+                <div class="header-title">
+                    <h2>My Desk</h2>
+                    <p>Welcome back!</p>
+                </div>
+                <i class="fa-regular fa-bell" style="font-size: 24px;"></i>
+            </div>
+            <div id="admin-jobs" style="margin-top: 20px;">Loading...</div>
+        </div>
+
+        <!-- 2. Adoc Tab -->
+        <div id="tab-adoc" class="tab-content">
+            <div class="generic-header">All Payments [A]</div>
+            <div id="adoc-data">Loading...</div>
+        </div>
+
+        <!-- 3. Scanner Tab -->
+        <div id="tab-scanner" class="tab-content">
+            <div class="generic-header">Scan</div>
+            <div class="scanner-box">
+                <video id="videoElement" autoplay playsinline></video>
+            </div>
+            <div class="scan-controls">
+                <button class="light-btn" onclick="toggleLight()">
+                    <div class="light-inner" id="lightState">Off</div>
+                </button>
+                <span style="font-size: 14px; margin-right: 20px;">light<br>Button</span>
+                <button class="scan-btn">Scan</button>
+            </div>
+        </div>
+
+        <!-- 4. My Job Tab -->
+        <div id="tab-job" class="tab-content">
+            <div class="generic-header" id="company-name">Loading...</div>
+            <div id="attendance-data">Loading...</div>
+        </div>
+
+        <!-- 5. Profile Tab -->
+        <div id="tab-profile" class="tab-content">
+            <div class="profile-container">
+                <div class="prof-header">
+                    <h2>Profile</h2>
+                    <button class="verify-btn">Verify btn</button>
+                </div>
+                <div style="border-bottom: 1px solid #000;"></div>
+                
+                <div class="prof-photo">Photo</div>
+                
+                <div id="profile-fields">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Bottom Navbar -->
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('home', this)"><i class="fa-solid fa-house"></i><span>Home</span></div>
+            <div class="nav-item" onclick="switchTab('adoc', this)"><i class="fa-solid fa-file-invoice"></i><span>Adoc</span></div>
+            <div class="nav-item" onclick="switchTab('scanner', this)"><i class="fa-solid fa-qrcode"></i><span>Scanner</span></div>
+            <div class="nav-item" onclick="switchTab('job', this)"><i class="fa-solid fa-briefcase"></i><span>My Job</span></div>
+            <div class="nav-item" onclick="switchTab('profile', this)"><i class="fa-solid fa-user"></i><span>Profile</span></div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_BASE = '/v1';
+        let stream = null;
+        let track = null;
+        let flashOn = false;
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('open');
+        }
+
+        function logout() {
+            window.location.href = '/login.html';
+        }
+
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById('tab-' + tabId).classList.add('active');
+            el.classList.add('active');
+
+            // Handle Camera
+            if(tabId === 'scanner') {
+                startCamera();
+            } else {
+                stopCamera();
+            }
+        }
+
+        // Real Camera Logic
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                document.getElementById('videoElement').srcObject = stream;
+                track = stream.getVideoTracks()[0];
+            } catch(e) {
+                console.error("Camera err", e);
+            }
+        }
+
+        function stopCamera() {
+            if(stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+                track = null;
+                flashOn = false;
+                document.getElementById('lightState').innerText = 'Off';
+            }
+        }
+
+        async function toggleLight() {
+            if(!track) return;
+            const capabilities = track.getCapabilities();
+            if(capabilities.torch) {
+                flashOn = !flashOn;
+                await track.applyConstraints({ advanced: [{ torch: flashOn }] });
+                document.getElementById('lightState').innerText = flashOn ? 'On' : 'Off';
+            } else {
+                alert("Flashlight not supported on this device.");
+            }
+        }
+
+        // Fetch Data from Backend
+        async function loadData() {
+            try {
+                // 1. Home
+                const resHome = await fetch(API_BASE + '/jobs/admin');
+                const homeData = await resHome.json();
+                const adminDiv = document.getElementById('admin-jobs');
+                if(homeData.data.length === 0) adminDiv.innerHTML = '<p style="text-align:center; color:#666;">No admin jobs available right now.</p>';
+                else {
+                    adminDiv.innerHTML = homeData.data.map(j => `<div class="card">${j.title}</div>`).join('');
+                }
+
+                // 2. Adoc
+                const resAdoc = await fetch(API_BASE + '/adoc/me');
+                const adocData = await resAdoc.json();
+                const adocDiv = document.getElementById('adoc-data');
+                if(adocData.data.length === 0) adocDiv.innerHTML = '<p style="text-align:center; color:#666;">No payment records found.</p>';
+                else {
+                    adocDiv.innerHTML = adocData.data.map(i => `
+                        <div class="solid-card">
+                            <div class="row"><div class="label">Company name:</div><div class="val">${i.company}</div></div>
+                            <div class="row"><div class="label">timing:</div><div class="val">${i.timing}</div></div>
+                            <div class="row"><div class="label">Payment:</div><div class="val">${i.payment}</div></div>
+                            <div class="row"><div class="label">help:</div><div class="val">${i.help}</div></div>
+                        </div>`).join('');
+                }
+
+                // 3. My Job
+                const resJob = await fetch(API_BASE + '/jobs/me');
+                const jobData = await resJob.json();
+                document.getElementById('company-name').innerText = jobData.companyName || "No Company Joined";
+                const attDiv = document.getElementById('attendance-data');
+                if(jobData.data.length === 0) attDiv.innerHTML = '<p style="text-align:center; color:#666;">No attendance records found.</p>';
+                else {
+                    attDiv.innerHTML = jobData.data.map(a => `
+                        <div class="attendance-card">
+                            <span>${a.date}</span>
+                            <div class="status-circle">${a.status}</div>
+                        </div>`).join('');
+                }
+
+                // 4. Profile
+                const resProf = await fetch(API_BASE + '/profile/me');
+                const profData = await resProf.json();
+                const pd = profData.data;
+                document.getElementById('profile-fields').innerHTML = `
+                    <input class="p-input" value="${pd.name}" placeholder="Name" readonly>
+                    <div class="p-row"><input class="p-input" value="${pd.uid}" placeholder="UID" readonly> <strong>APP. UID.</strong></div>
+                    <input class="p-input" value="${pd.adhar}" placeholder="Adhar nub." readonly>
+                    <input class="p-input" value="${pd.dob}" placeholder="D O b." readonly>
+                    <input class="p-input" value="${pd.bank}" placeholder="bank nub" readonly>
+                    <div class="p-row"><input class="p-input" value="${pd.phone}" placeholder="Nubben" readonly> <strong>Phone</strong></div>
+                    <input class="p-input" value="${pd.email}" placeholder="Email" readonly>
+                    <input class="p-input" value="${pd.uai}" placeholder="UAI Nub." readonly>
+                `;
+
+            } catch (err) {
+                console.error("API Error", err);
+            }
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>

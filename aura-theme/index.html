@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura | Modern Theme</title>
+    <!-- Modern Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Theme Toggle Button -->
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Theme">
+        <!-- Moon Icon (for Light Mode) -->
+        <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <!-- Sun Icon (for Dark Mode) -->
+        <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+    </button>
+
+    <header>
+        <nav>
+            <div class="logo">Aura.</div>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#showcase">Showcase</a></li>
+            </ul>
+            <button class="btn primary">Get Started</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section id="home" class="hero">
+            <div class="hero-content">
+                <div class="badge">✨ Fresh & Modern Aesthetic</div>
+                <h1>Experience <span class="gradient-text">Design</span> Like Never Before</h1>
+                <p>A beautiful, responsive, and dynamic theme built with modern web technologies. Featuring glassmorphism, vibrant gradients, and seamless dark mode.</p>
+                <div class="hero-buttons">
+                    <button class="btn primary lg">Explore Theme</button>
+                    <button class="btn secondary lg">View Documentation</button>
+                </div>
+            </div>
+            
+            <div class="hero-visual">
+                <!-- Glowing background orbs -->
+                <div class="glass-orb orb-1"></div>
+                <div class="glass-orb orb-2"></div>
+                
+                <!-- Glassmorphism Card -->
+                <div class="glass-card main-card">
+                    <h3>Analytics Overview</h3>
+                    <div class="mock-graph">
+                        <div class="bar" style="height: 40%"></div>
+                        <div class="bar" style="height: 70%"></div>
+                        <div class="bar" style="height: 50%"></div>
+                        <div class="bar" style="height: 90%"></div>
+                        <div class="bar" style="height: 60%"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="features">
+            <div class="feature-card">
+                <div class="icon-box">🎨</div>
+                <h3>Vibrant Aesthetics</h3>
+                <p>Carefully crafted with eye-catching colors, beautiful gradients, and sleek modern typography.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon-box">⚡</div>
+                <h3>Lightning Fast</h3>
+                <p>Built purely with HTML, CSS, and Vanilla JS for maximum performance and zero bloat.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon-box">🌙</div>
+                <h3>Dynamic Dark Mode</h3>
+                <p>Seamless and smooth transitions between light and dark themes based on your preference.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
