@@ -1,0 +1,8 @@
+{
+  "name": "aura-root",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd aura-backend && npm install",
+    "start": "cd aura-backend && npm start"
+  }
+}
