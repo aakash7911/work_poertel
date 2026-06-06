@@ -7,7 +7,14 @@ const bcrypt = require('bcryptjs');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Serve static HTML files from aura-web folder
 app.use(express.static(path.join(__dirname, '../aura-web')));
+
+// Redirect root to login.html
+app.get('/', (req, res) => {
+  res.redirect('/login.html');
+});
 
 // MOCK DATABASE (To be replaced with MongoDB later)
 const DB = {
