@@ -148,7 +148,11 @@
                 });
                 const data = await res.json();
                 if(data.success) {
-                    window.location.href = '/dashboard.html';
+                    if(data.role === 'admin') {
+                        window.location.href = '/admin-dashboard.html';
+                    } else {
+                        window.location.href = '/dashboard.html';
+                    }
                 } else {
                     alert(data.message);
                 }

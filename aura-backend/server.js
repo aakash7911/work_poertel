@@ -36,7 +36,8 @@ const OTP_STORE = {}; // { email: { otp: "123456", type: 'register' | 'forgot' }
     dob: '01/01/2000',
     bank: 'BANK-000',
     phone: '9999999999',
-    uai: 'UAI-ADMIN'
+    uai: 'UAI-ADMIN',
+    role: 'admin' // Added role
   });
   console.log('✅ Default Admin created -> Email: admin@aura.com | Pass: admin123');
 })();
@@ -134,7 +135,8 @@ app.post('/v1/auth/login', async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if(!isMatch) return res.json({ success: false, message: 'Invalid credentials' });
 
-  res.json({ success: true, token: 'jwt-token-here', message: 'Logged in' });
+  // Return role so frontend knows where to redirect
+  res.json({ success: true, token: 'jwt-token-here', role: user.role || 'user', message: 'Logged in' });
 });
 
 // 4. FORGOT PASSWORD -> SEND OTP
@@ -171,8 +173,28 @@ app.post('/v1/auth/reset-password', async (req, res) => {
 });
 
 // --- OTHER EXISTING ENDPOINTS ---
+
+const ADMIN_JOBS = []; // Temp storage for jobs posted by admin
+
+// Get all jobs
 app.get('/v1/jobs/admin', (req, res) => {
-  res.json({ success: true, data: [] });
+  res.json({ success: true, data: ADMIN_JOBS });
+});
+
+// Post a new job
+app.post('/v1/jobs/admin', (req, res) => {
+  const { title, description, posterUrl } = req.body;
+  if (!title) return res.json({ success: false, message: 'Title is required' });
+  
+  const newJob = {
+    id: Date.now().toString(),
+    title,
+    description: description || '',
+    posterUrl: posterUrl || ''
+  };
+  ADMIN_JOBS.push(newJob);
+  
+  res.json({ success: true, message: 'Job posted successfully', data: newJob });
 });
 
 app.get('/v1/adoc/me', (req, res) => {
