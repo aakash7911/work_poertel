@@ -22,6 +22,25 @@ const DB = {
 };
 const OTP_STORE = {}; // { email: { otp: "123456", type: 'register' | 'forgot' } }
 
+// Auto-create default admin user for easy login testing
+(async () => {
+  const salt = await bcrypt.genSalt(10);
+  const hash = await bcrypt.hash('admin123', salt);
+  DB.users.push({
+    email: 'admin@aura.com',
+    passwordHash: hash,
+    name: 'Admin Aura',
+    isVerified: true,
+    uid: 'ADMIN-001',
+    adhar: '0000-0000-0000',
+    dob: '01/01/2000',
+    bank: 'BANK-000',
+    phone: '9999999999',
+    uai: 'UAI-ADMIN'
+  });
+  console.log('✅ Default Admin created -> Email: admin@aura.com | Pass: admin123');
+})();
+
 // Helper to simulate Email sending or send via Brevo
 const sendEmailOTP = async (email, otp) => {
   if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY !== 'your_brevo_api_key_here') {
