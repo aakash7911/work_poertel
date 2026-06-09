@@ -23,8 +23,9 @@ const DB = {
 const OTP_STORE = {}; // { email: { otp: "123456", type: 'register' | 'forgot' } }
 
 // Storage for jobs & applications
-const ADMIN_JOBS = []; // { id, title, description, posterUrl, companyName, jobType: 'permanent' | 'adoc' }
+let ADMIN_JOBS = []; // { id, title, description, posterUrl, companyName, jobType: 'permanent' | 'adoc' }
 const APPLICATIONS = []; // { id, userEmail, jobId, companyName, status: 'pending' | 'approved', userInfo }
+const RESIGNATIONS = []; // { id, userEmail, companyName, reason, status: 'pending' }
 
 // Auto-create default admin user for easy login testing
 (async () => {
@@ -226,6 +227,40 @@ app.post('/v1/admin/applications/approve', (req, res) => {
   res.json({ success: true, message: 'Application approved successfully' });
 });
 
+// Admin views all jobs (for deletion)
+app.get('/v1/admin/all-jobs', (req, res) => {
+  res.json({ success: true, data: ADMIN_JOBS });
+});
+
+// Admin deletes a job
+app.delete('/v1/admin/jobs/:id', (req, res) => {
+  const { id } = req.params;
+  ADMIN_JOBS = ADMIN_JOBS.filter(j => j.id !== id);
+  res.json({ success: true, message: 'Job deleted successfully' });
+});
+
+// Admin views resignations
+app.get('/v1/admin/resignations', (req, res) => {
+  res.json({ success: true, data: RESIGNATIONS.filter(r => r.status === 'pending') });
+});
+
+// Admin approves resignation
+app.post('/v1/admin/resignations/approve', (req, res) => {
+  const { resignId } = req.body;
+  const resign = RESIGNATIONS.find(r => r.id === resignId);
+  if (!resign) return res.json({ success: false, message: 'Resignation not found' });
+
+  resign.status = 'approved';
+  
+  const user = DB.users.find(u => u.email === resign.userEmail);
+  if (user) {
+    user.joinStatus = null;
+    user.permanentCompany = null;
+  }
+
+  res.json({ success: true, message: 'Resignation approved. User removed from company.' });
+});
+
 
 // --- USER ENDPOINTS ---
 
@@ -252,6 +287,27 @@ app.post('/v1/jobs/apply', (req, res) => {
   user.joinStatus = 'pending';
 
   res.json({ success: true, message: 'Application submitted successfully. Joining on the way!' });
+});
+
+// User submits resignation
+app.post('/v1/jobs/resign', (req, res) => {
+  const { userEmail, reason } = req.body;
+  const user = DB.users.find(u => u.email === userEmail);
+  
+  if (!user || !user.permanentCompany) {
+    return res.json({ success: false, message: 'You are not joined to any company.' });
+  }
+
+  user.joinStatus = 'resigning';
+  RESIGNATIONS.push({
+    id: Date.now().toString(),
+    userEmail,
+    companyName: user.permanentCompany,
+    reason,
+    status: 'pending'
+  });
+
+  res.json({ success: true, message: 'Resignation submitted. Pending admin approval.' });
 });
 
 // Get Permanent jobs for home tab

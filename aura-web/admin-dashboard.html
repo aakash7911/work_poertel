@@ -92,16 +92,16 @@
                     <span>Add Company<br><small>(Partnership)</small></span>
                 </div>
 
-                <!-- Button 6: Manage Companies -->
-                <div class="admin-card" onclick="alert('Manage Companies feature coming soon!')">
+                <!-- Button 6: Manage Jobs -->
+                <div class="admin-card" onclick="loadAllJobs()">
                     <i class="fa-solid fa-list-check"></i>
-                    <span>Manage Companies<br><small>(TBD)</small></span>
+                    <span>Manage Jobs<br><small>(Delete Jobs)</small></span>
                 </div>
 
-                <!-- Button 7: Employee Data -->
-                <div class="admin-card" onclick="alert('Employee Data feature coming soon!')">
-                    <i class="fa-solid fa-user-check"></i>
-                    <span>Emp Data<br><small>(By Company)</small></span>
+                <!-- Button 7: Resign Requests -->
+                <div class="admin-card" onclick="loadResignations()">
+                    <i class="fa-solid fa-user-minus"></i>
+                    <span>Resign Requests<br><small>(Approve Leave)</small></span>
                 </div>
 
                 <!-- Button 8: Adoc Management -->
@@ -145,6 +145,28 @@
             <div id="app-list" style="max-height: 400px; overflow-y: auto;">Loading...</div>
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeModal('appModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANAGE JOBS MODAL -->
+    <div class="modal" id="manageJobsModal">
+        <div class="modal-content" style="max-width: 500px; width: 95%;">
+            <h3>Manage Jobs</h3>
+            <div id="manage-jobs-list" style="max-height: 400px; overflow-y: auto;">Loading...</div>
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('manageJobsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESIGNATIONS MODAL -->
+    <div class="modal" id="resignModal">
+        <div class="modal-content" style="max-width: 500px; width: 95%;">
+            <h3>Resignation Requests</h3>
+            <div id="resign-list" style="max-height: 400px; overflow-y: auto;">Loading...</div>
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('resignModal')">Close</button>
             </div>
         </div>
     </div>
@@ -237,6 +259,86 @@
             } catch (err) {
                 alert('Error approving');
             }
+        }
+
+        async function loadAllJobs() {
+            openModal('manageJobsModal');
+            document.getElementById('manage-jobs-list').innerHTML = 'Loading...';
+            try {
+                const res = await fetch('/v1/admin/all-jobs');
+                const data = await res.json();
+                
+                if (data.data.length === 0) {
+                    document.getElementById('manage-jobs-list').innerHTML = '<p>No jobs found.</p>';
+                    return;
+                }
+
+                let html = '';
+                data.data.forEach(job => {
+                    html += `
+                        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 8px;">
+                            <strong>${job.title}</strong> (${job.jobType})<br>
+                            Company: ${job.companyName}<br>
+                            <button class="btn btn-cancel" style="margin-top: 10px; background:red; color:white;" onclick="deleteJob('${job.id}')">Delete Job</button>
+                        </div>
+                    `;
+                });
+                document.getElementById('manage-jobs-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('manage-jobs-list').innerHTML = 'Error loading data.';
+            }
+        }
+
+        async function deleteJob(id) {
+            if(!confirm("Are you sure you want to delete this job?")) return;
+            try {
+                const res = await fetch(`/v1/admin/jobs/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) loadAllJobs();
+            } catch (err) { alert('Error deleting job'); }
+        }
+
+        async function loadResignations() {
+            openModal('resignModal');
+            document.getElementById('resign-list').innerHTML = 'Loading...';
+            try {
+                const res = await fetch('/v1/admin/resignations');
+                const data = await res.json();
+                
+                if (data.data.length === 0) {
+                    document.getElementById('resign-list').innerHTML = '<p>No pending resignations.</p>';
+                    return;
+                }
+
+                let html = '';
+                data.data.forEach(r => {
+                    html += `
+                        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 8px;">
+                            <strong>User:</strong> ${r.userEmail}<br>
+                            <strong>Leaving:</strong> ${r.companyName}<br>
+                            <strong>Reason:</strong> ${r.reason}<br>
+                            <button class="btn btn-submit" style="margin-top: 10px;" onclick="approveResign('${r.id}')">Approve Resign</button>
+                        </div>
+                    `;
+                });
+                document.getElementById('resign-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('resign-list').innerHTML = 'Error loading data.';
+            }
+        }
+
+        async function approveResign(id) {
+            try {
+                const res = await fetch('/v1/admin/resignations/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resignId: id })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) loadResignations();
+            } catch (err) { alert('Error approving'); }
         }
     </script>
 </body>
