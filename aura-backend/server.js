@@ -4,6 +4,31 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+
+const fs = require('fs');
+const DB_FILE = path.join(__dirname, 'database.json');
+
+function saveDatabase() {
+  const data = { users: DB.users, jobs: ADMIN_JOBS, applications: APPLICATIONS, resignations: RESIGNATIONS };
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+}
+
+function loadDatabase() {
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      const raw = fs.readFileSync(DB_FILE);
+      const data = JSON.parse(raw);
+      if (data.users) DB.users = data.users;
+      if (data.jobs) ADMIN_JOBS = data.jobs;
+      if (data.applications) APPLICATIONS = data.applications;
+      if (data.resignations) RESIGNATIONS = data.resignations;
+    } catch(e) { console.error('Error loading DB', e); }
+  } else {
+    saveDatabase();
+  }
+}
+loadDatabase();
+
 const cloudinary = require('cloudinary').v2;
 
 const app = express();
@@ -144,7 +169,7 @@ app.post('/v1/auth/verify-otp', async (req, res) => {
     };
     DB.users.push(newUser);
     delete OTP_STORE[email];
-    
+    saveDatabase();
     res.json({ success: true, message: 'Account created successfully' });
   } 
   else if (store.type === 'forgot') {
@@ -234,7 +259,7 @@ app.post('/v1/jobs/admin', (req, res) => {
     jobType
   };
   ADMIN_JOBS.push(newJob);
-  
+  saveDatabase();
   res.json({ success: true, message: 'Job posted successfully', data: newJob });
 });
 
@@ -258,6 +283,7 @@ app.post('/v1/admin/applications/approve', (req, res) => {
     user.permanentCompany = application.companyName;
   }
 
+  saveDatabase();
   res.json({ success: true, message: 'Application approved successfully' });
 });
 
@@ -270,6 +296,7 @@ app.get('/v1/admin/all-jobs', (req, res) => {
 app.delete('/v1/admin/jobs/:id', (req, res) => {
   const { id } = req.params;
   ADMIN_JOBS = ADMIN_JOBS.filter(j => j.id !== id);
+  saveDatabase();
   res.json({ success: true, message: 'Job deleted successfully' });
 });
 
@@ -292,6 +319,7 @@ app.post('/v1/admin/resignations/approve', (req, res) => {
     user.permanentCompany = null;
   }
 
+  saveDatabase();
   res.json({ success: true, message: 'Resignation approved. User removed from company.' });
 });
 
@@ -339,6 +367,7 @@ app.post('/v1/jobs/apply', (req, res) => {
   APPLICATIONS.push(newApp);
   user.joinStatus = 'pending';
 
+  saveDatabase();
   res.json({ success: true, message: 'Application submitted successfully. Joining on the way!' });
 });
 
@@ -360,6 +389,7 @@ app.post('/v1/jobs/resign', (req, res) => {
     status: 'pending'
   });
 
+  saveDatabase();
   res.json({ success: true, message: 'Resignation submitted. Pending admin approval.' });
 });
 
@@ -408,6 +438,7 @@ app.post('/v1/adoc/scan', (req, res) => {
   user.adocHistory = user.adocHistory || [];
   user.adocHistory.push(record);
 
+  saveDatabase();
   res.json({ success: true, message: 'Scan successful! Attendance and Payment record added.', data: record });
 });
 
@@ -453,6 +484,7 @@ app.post('/v1/profile/verify', (req, res) => {
   user.profilePic = profilePic;
   user.profileVerified = true;
 
+  saveDatabase();
   res.json({ success: true, message: 'Profile verified successfully!' });
 });
 
