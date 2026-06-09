@@ -267,6 +267,22 @@
             <div class="nav-item" onclick="switchTab('profile', this)"><i class="fa-solid fa-user"></i><span>Profile</span></div>
         </div>
 
+        <!-- 6. Application Modal -->
+        <div class="overlay" id="app-modal-overlay"></div>
+        <div class="modal" id="app-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#fff; padding:20px; border:2px solid #000; border-radius:16px; z-index:2000; width:90%; max-width:350px;">
+            <h3>Apply for Job</h3>
+            <p id="app-job-title" style="margin-top:0; color:#666;"></p>
+            <input type="text" id="a-name" class="p-input" placeholder="Full Name" style="width:100%; margin-bottom:10px;">
+            <input type="text" id="a-phone" class="p-input" placeholder="Phone Number" style="width:100%; margin-bottom:10px;">
+            <input type="text" id="a-exp" class="p-input" placeholder="Experience (e.g. 2 years)" style="width:100%; margin-bottom:10px;">
+            <textarea id="a-address" class="p-input" placeholder="Full Address" style="width:100%; height:60px; margin-bottom:10px; resize:none;"></textarea>
+            
+            <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                <button onclick="closeAppModal()" style="padding:10px; background:#ccc; border:none; border-radius:8px; cursor:pointer;">Cancel</button>
+                <button onclick="submitApplication()" style="padding:10px; background:#000; color:#fff; border:none; border-radius:8px; cursor:pointer;">Submit</button>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -274,6 +290,8 @@
         let stream = null;
         let track = null;
         let flashOn = false;
+        let currentUser = null;
+        let selectedJobId = null;
 
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
@@ -281,6 +299,7 @@
         }
 
         function logout() {
+            localStorage.removeItem('userEmail');
             window.location.href = '/login.html';
         }
 
@@ -291,31 +310,22 @@
             document.getElementById('tab-' + tabId).classList.add('active');
             el.classList.add('active');
 
-            // Handle Camera
-            if(tabId === 'scanner') {
-                startCamera();
-            } else {
-                stopCamera();
-            }
+            if(tabId === 'scanner') startCamera();
+            else stopCamera();
         }
 
-        // Real Camera Logic
         async function startCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 document.getElementById('videoElement').srcObject = stream;
                 track = stream.getVideoTracks()[0];
-            } catch(e) {
-                console.error("Camera err", e);
-            }
+            } catch(e) { console.error("Camera err", e); }
         }
 
         function stopCamera() {
             if(stream) {
                 stream.getTracks().forEach(t => t.stop());
-                stream = null;
-                track = null;
-                flashOn = false;
+                stream = null; track = null; flashOn = false;
                 document.getElementById('lightState').innerText = 'Off';
             }
         }
@@ -327,71 +337,149 @@
                 flashOn = !flashOn;
                 await track.applyConstraints({ advanced: [{ torch: flashOn }] });
                 document.getElementById('lightState').innerText = flashOn ? 'On' : 'Off';
-            } else {
-                alert("Flashlight not supported on this device.");
-            }
+            } else alert("Flashlight not supported.");
         }
 
-        // Fetch Data from Backend
-        async function loadData() {
+        function closeAppModal() {
+            document.getElementById('app-modal').style.display = 'none';
+            document.getElementById('app-modal-overlay').style.display = 'none';
+        }
+
+        function applyForJob(id, title) {
+            if (currentUser.permanentCompany) {
+                return alert('You are already joined. Join now adoc are preference.');
+            }
+            if (currentUser.joinStatus === 'pending') {
+                return alert('Your application is already pending. Joining on the way!');
+            }
+            selectedJobId = id;
+            document.getElementById('app-job-title').innerText = title;
+            document.getElementById('app-modal').style.display = 'block';
+            document.getElementById('app-modal-overlay').style.display = 'block';
+        }
+
+        async function submitApplication() {
+            const email = localStorage.getItem('userEmail');
+            const name = document.getElementById('a-name').value;
+            const phone = document.getElementById('a-phone').value;
+            const exp = document.getElementById('a-exp').value;
+            const address = document.getElementById('a-address').value;
+
+            if(!name || !phone || !exp || !address) return alert("Please fill all fields");
+
             try {
-                // 1. Home
-                const resHome = await fetch(API_BASE + '/jobs/admin');
-                const homeData = await resHome.json();
-                const adminDiv = document.getElementById('admin-jobs');
-                if(homeData.data.length === 0) adminDiv.innerHTML = '<p style="text-align:center; color:#666;">No admin jobs available right now.</p>';
-                else {
-                    adminDiv.innerHTML = homeData.data.map(j => `<div class="card">${j.title}</div>`).join('');
+                const res = await fetch(API_BASE + '/jobs/apply', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        userEmail: email, 
+                        jobId: selectedJobId, 
+                        userInfo: `Name: ${name}, Phone: ${phone}, Exp: ${exp}, Addr: ${address}` 
+                    })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    closeAppModal();
+                    loadData(); // reload profile to show "Joining on the way"
                 }
+            } catch (err) { alert('Error submitting application'); }
+        }
 
-                // 2. Adoc
-                const resAdoc = await fetch(API_BASE + '/adoc/me');
-                const adocData = await resAdoc.json();
-                const adocDiv = document.getElementById('adoc-data');
-                if(adocData.data.length === 0) adocDiv.innerHTML = '<p style="text-align:center; color:#666;">No payment records found.</p>';
-                else {
-                    adocDiv.innerHTML = adocData.data.map(i => `
-                        <div class="solid-card">
-                            <div class="row"><div class="label">Company name:</div><div class="val">${i.company}</div></div>
-                            <div class="row"><div class="label">timing:</div><div class="val">${i.timing}</div></div>
-                            <div class="row"><div class="label">Payment:</div><div class="val">${i.payment}</div></div>
-                            <div class="row"><div class="label">help:</div><div class="val">${i.help}</div></div>
-                        </div>`).join('');
-                }
-
-                // 3. My Job
-                const resJob = await fetch(API_BASE + '/jobs/me');
-                const jobData = await resJob.json();
-                document.getElementById('company-name').innerText = jobData.companyName || "No Company Joined";
-                const attDiv = document.getElementById('attendance-data');
-                if(jobData.data.length === 0) attDiv.innerHTML = '<p style="text-align:center; color:#666;">No attendance records found.</p>';
-                else {
-                    attDiv.innerHTML = jobData.data.map(a => `
-                        <div class="attendance-card">
-                            <span>${a.date}</span>
-                            <div class="status-circle">${a.status}</div>
-                        </div>`).join('');
-                }
-
-                // 4. Profile
-                const resProf = await fetch(API_BASE + '/profile/me');
+        async function loadData() {
+            const email = localStorage.getItem('userEmail') || 'admin@aura.com'; // fallback for demo
+            
+            try {
+                // Fetch Profile first to get current status
+                const resProf = await fetch(API_BASE + '/profile/me', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
                 const profData = await resProf.json();
-                const pd = profData.data;
+                currentUser = profData.data;
+
+                // 1. Profile Tab
+                const pd = currentUser;
+                let statusHtml = '';
+                if (pd.permanentCompany) statusHtml = `<h3 style="text-align:center; color:green;">Company: ${pd.permanentCompany}</h3>`;
+                else if (pd.joinStatus === 'pending') statusHtml = `<h3 style="text-align:center; color:orange;">Status: Joining on the way!</h3>`;
+                else statusHtml = `<h3 style="text-align:center; color:gray;">Status: Not Joined</h3>`;
+
                 document.getElementById('profile-fields').innerHTML = `
+                    ${statusHtml}
                     <input class="p-input" value="${pd.name}" placeholder="Name" readonly>
                     <div class="p-row"><input class="p-input" value="${pd.uid}" placeholder="UID" readonly> <strong>APP. UID.</strong></div>
-                    <input class="p-input" value="${pd.adhar}" placeholder="Adhar nub." readonly>
-                    <input class="p-input" value="${pd.dob}" placeholder="D O b." readonly>
-                    <input class="p-input" value="${pd.bank}" placeholder="bank nub" readonly>
-                    <div class="p-row"><input class="p-input" value="${pd.phone}" placeholder="Nubben" readonly> <strong>Phone</strong></div>
                     <input class="p-input" value="${pd.email}" placeholder="Email" readonly>
-                    <input class="p-input" value="${pd.uai}" placeholder="UAI Nub." readonly>
                 `;
+
+                // 2. Home Tab (Permanent Jobs)
+                const resHome = await fetch(API_BASE + '/jobs/permanent');
+                const homeData = await resHome.json();
+                const adminDiv = document.getElementById('admin-jobs');
+                if(homeData.data.length === 0) adminDiv.innerHTML = '<p style="text-align:center; color:#666;">No jobs available right now.</p>';
+                else {
+                    adminDiv.innerHTML = homeData.data.map(j => `
+                        <div class="card" onclick="applyForJob('${j.id}', '${j.title}')" style="cursor:pointer;">
+                            ${j.title} <br><small>${j.companyName}</small>
+                        </div>`).join('');
+                }
+
+                // 3. Adoc Tab
+                const resAdoc = await fetch(API_BASE + '/jobs/adoc/filtered', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userEmail: email })
+                });
+                const adocData = await resAdoc.json();
+                const adocDiv = document.getElementById('adoc-data');
+                if(adocData.data.length === 0) adocDiv.innerHTML = '<p style="text-align:center; color:#666;">No Adoc jobs available.</p>';
+                else {
+                    adocDiv.innerHTML = adocData.data.map(i => `
+                        <div class="solid-card" style="padding:15px; margin-bottom:10px;">
+                            <div class="row"><div class="label">Job:</div><div class="val">${i.title}</div></div>
+                            <div class="row"><div class="label">Company:</div><div class="val">${i.companyName}</div></div>
+                            <p style="text-align:center; font-size:12px; color:#666;">Scan QR matching ID: ${i.id} to join</p>
+                        </div>`).join('');
+                }
+
+                // 4. My Job (Adoc History & Current Job)
+                document.getElementById('company-name').innerText = pd.permanentCompany || "No Permanent Company";
+                const attDiv = document.getElementById('attendance-data');
+                if(!pd.adocHistory || pd.adocHistory.length === 0) {
+                    attDiv.innerHTML = '<p style="text-align:center; color:#666;">No adoc attendance records found.</p>';
+                } else {
+                    attDiv.innerHTML = pd.adocHistory.map(a => `
+                        <div class="attendance-card">
+                            <div>
+                                <strong>${a.title}</strong> (${a.company})<br>
+                                <small>${a.date} | Payment: ${a.paymentStatus}</small>
+                            </div>
+                            <div class="status-circle">P</div>
+                        </div>`).join('');
+                }
 
             } catch (err) {
                 console.error("API Error", err);
             }
         }
+
+        // Mock Scanner Button (Since we can't read real QR codes easily in browser without a library)
+        document.querySelector('.scan-btn').addEventListener('click', async () => {
+            const jobId = prompt("Mock Scanner: Enter the Adoc Job ID to join:");
+            if(!jobId) return;
+            const email = localStorage.getItem('userEmail');
+            
+            try {
+                const res = await fetch(API_BASE + '/adoc/scan', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userEmail: email, jobId })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    loadData(); // refresh history
+                    switchTab('job', document.querySelectorAll('.nav-item')[3]);
+                }
+            } catch (err) { alert('Scan failed'); }
+        });
 
         window.onload = loadData;
     </script>

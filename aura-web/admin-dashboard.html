@@ -68,10 +68,10 @@
                     <span>Post Job</span>
                 </div>
 
-                <!-- Button 2: Manage Users -->
-                <div class="admin-card" onclick="alert('Manage Users feature coming soon!')">
+                <!-- Button 2: Applications -->
+                <div class="admin-card" onclick="loadApplications()">
                     <i class="fa-solid fa-users"></i>
-                    <span>Manage Users<br><small>(TBD)</small></span>
+                    <span>Applications<br><small>(Approve Users)</small></span>
                 </div>
 
                 <!-- Button 3: Payments -->
@@ -123,12 +123,28 @@
     <div class="modal" id="jobModal">
         <div class="modal-content">
             <h3>Post a New Job</h3>
-            <input type="text" id="j-title" class="input" placeholder="Job Title (e.g. Job 3 Posted by AD)">
+            <select id="j-type" class="input">
+                <option value="permanent">Permanent Job (Full Time)</option>
+                <option value="adoc">Adoc Job (1 Day Scan)</option>
+            </select>
+            <input type="text" id="j-company" class="input" placeholder="Company Name (e.g. Google)">
+            <input type="text" id="j-title" class="input" placeholder="Job Title (e.g. Software Engineer)">
             <textarea id="j-desc" class="input" placeholder="Job Description..."></textarea>
             <input type="text" id="j-poster" class="input" placeholder="Cloudinary Poster URL">
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeModal('jobModal')">Cancel</button>
                 <button class="btn btn-submit" onclick="postJob()">Post Job</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATIONS MODAL -->
+    <div class="modal" id="appModal">
+        <div class="modal-content" style="max-width: 500px; width: 95%;">
+            <h3>Pending Applications</h3>
+            <div id="app-list" style="max-height: 400px; overflow-y: auto;">Loading...</div>
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('appModal')">Close</button>
             </div>
         </div>
     </div>
@@ -150,27 +166,76 @@
             const title = document.getElementById('j-title').value;
             const description = document.getElementById('j-desc').value;
             const posterUrl = document.getElementById('j-poster').value;
+            const companyName = document.getElementById('j-company').value;
+            const jobType = document.getElementById('j-type').value;
 
-            if(!title) return alert('Title is required!');
+            if(!title || !companyName) return alert('Title and Company Name are required!');
 
             try {
                 const res = await fetch('/v1/jobs/admin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, description, posterUrl })
+                    body: JSON.stringify({ title, description, posterUrl, companyName, jobType })
                 });
                 const data = await res.json();
                 alert(data.message);
                 if(data.success) {
                     closeModal('jobModal');
-                    // Clear inputs
                     document.getElementById('j-title').value = '';
                     document.getElementById('j-desc').value = '';
                     document.getElementById('j-poster').value = '';
+                    document.getElementById('j-company').value = '';
                 }
             } catch (err) {
                 console.error(err);
                 alert('Error posting job');
+            }
+        }
+
+        async function loadApplications() {
+            openModal('appModal');
+            document.getElementById('app-list').innerHTML = 'Loading...';
+            try {
+                const res = await fetch('/v1/admin/applications');
+                const data = await res.json();
+                const pending = data.data.filter(a => a.status === 'pending');
+                
+                if (pending.length === 0) {
+                    document.getElementById('app-list').innerHTML = '<p>No pending applications.</p>';
+                    return;
+                }
+
+                let html = '';
+                pending.forEach(app => {
+                    html += `
+                        <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 8px;">
+                            <strong>User:</strong> ${app.userEmail}<br>
+                            <strong>Company:</strong> ${app.companyName}<br>
+                            <strong>Info:</strong> ${app.userInfo || 'N/A'}<br>
+                            <button class="btn btn-submit" style="margin-top: 10px;" onclick="approveApp('${app.id}')">Approve Join</button>
+                        </div>
+                    `;
+                });
+                document.getElementById('app-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('app-list').innerHTML = 'Error loading data.';
+            }
+        }
+
+        async function approveApp(id) {
+            try {
+                const res = await fetch('/v1/admin/applications/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ applicationId: id })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    loadApplications(); // reload list
+                }
+            } catch (err) {
+                alert('Error approving');
             }
         }
     </script>

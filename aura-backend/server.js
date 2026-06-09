@@ -18,9 +18,13 @@ app.get('/', (req, res) => {
 
 // MOCK DATABASE (To be replaced with MongoDB later)
 const DB = {
-  users: [] // { email, passwordHash, isVerified, salt, name, uid, adhar, dob, bank, phone, uai }
+  users: [] // { email, passwordHash, isVerified, salt, name, uid, adhar, dob, bank, phone, uai, role, joinStatus, permanentCompany, adocHistory }
 };
 const OTP_STORE = {}; // { email: { otp: "123456", type: 'register' | 'forgot' } }
+
+// Storage for jobs & applications
+const ADMIN_JOBS = []; // { id, title, description, posterUrl, companyName, jobType: 'permanent' | 'adoc' }
+const APPLICATIONS = []; // { id, userEmail, jobId, companyName, status: 'pending' | 'approved', userInfo }
 
 // Auto-create default admin user for easy login testing
 (async () => {
@@ -37,7 +41,10 @@ const OTP_STORE = {}; // { email: { otp: "123456", type: 'register' | 'forgot' }
     bank: 'BANK-000',
     phone: '9999999999',
     uai: 'UAI-ADMIN',
-    role: 'admin' // Added role
+    role: 'admin',
+    joinStatus: null,
+    permanentCompany: null,
+    adocHistory: []
   });
   console.log('✅ Default Admin created -> Email: admin@aura.com | Pass: admin123');
 })();
@@ -111,7 +118,11 @@ app.post('/v1/auth/verify-otp', async (req, res) => {
       name: store.name,
       isVerified: true,
       uid: `UID-${Math.floor(Math.random()*10000)}`,
-      adhar: '', dob: '', bank: '', phone: '', uai: ''
+      adhar: '', dob: '', bank: '', phone: '', uai: '',
+      role: 'user',
+      joinStatus: null,
+      permanentCompany: null,
+      adocHistory: []
     };
     DB.users.push(newUser);
     delete OTP_STORE[email];
@@ -136,7 +147,7 @@ app.post('/v1/auth/login', async (req, res) => {
   if(!isMatch) return res.json({ success: false, message: 'Invalid credentials' });
 
   // Return role so frontend knows where to redirect
-  res.json({ success: true, token: 'jwt-token-here', role: user.role || 'user', message: 'Logged in' });
+  res.json({ success: true, token: 'jwt-token-here', role: user.role || 'user', email: user.email, message: 'Logged in' });
 });
 
 // 4. FORGOT PASSWORD -> SEND OTP
@@ -172,46 +183,148 @@ app.post('/v1/auth/reset-password', async (req, res) => {
   }
 });
 
-// --- OTHER EXISTING ENDPOINTS ---
+// --- ADMIN ENDPOINTS ---
 
-const ADMIN_JOBS = []; // Temp storage for jobs posted by admin
-
-// Get all jobs
-app.get('/v1/jobs/admin', (req, res) => {
-  res.json({ success: true, data: ADMIN_JOBS });
-});
-
-// Post a new job
+// Admin posts a job (Permanent or Adoc)
 app.post('/v1/jobs/admin', (req, res) => {
-  const { title, description, posterUrl } = req.body;
-  if (!title) return res.json({ success: false, message: 'Title is required' });
+  const { title, description, posterUrl, companyName, jobType } = req.body;
+  if (!title || !companyName || !jobType) return res.json({ success: false, message: 'Title, Company Name, and Job Type are required' });
   
   const newJob = {
     id: Date.now().toString(),
     title,
     description: description || '',
-    posterUrl: posterUrl || ''
+    posterUrl: posterUrl || '',
+    companyName,
+    jobType
   };
   ADMIN_JOBS.push(newJob);
   
   res.json({ success: true, message: 'Job posted successfully', data: newJob });
 });
 
-app.get('/v1/adoc/me', (req, res) => {
-  res.json({ success: true, data: [] });
+// Admin views pending applications
+app.get('/v1/admin/applications', (req, res) => {
+  res.json({ success: true, data: APPLICATIONS });
 });
 
-app.get('/v1/jobs/me', (req, res) => {
-  res.json({ success: true, companyName: null, data: [] });
+// Admin approves an application
+app.post('/v1/admin/applications/approve', (req, res) => {
+  const { applicationId } = req.body;
+  const appIndex = APPLICATIONS.findIndex(a => a.id === applicationId);
+  if (appIndex === -1) return res.json({ success: false, message: 'Application not found' });
+
+  const application = APPLICATIONS[appIndex];
+  application.status = 'approved';
+
+  const user = DB.users.find(u => u.email === application.userEmail);
+  if (user) {
+    user.joinStatus = 'approved';
+    user.permanentCompany = application.companyName;
+  }
+
+  res.json({ success: true, message: 'Application approved successfully' });
 });
 
-app.get('/v1/profile/me', (req, res) => {
-  // In a real app, you'd get the user from JWT
-  const user = DB.users[DB.users.length - 1]; // get latest user for demo
+
+// --- USER ENDPOINTS ---
+
+// Apply for a permanent job
+app.post('/v1/jobs/apply', (req, res) => {
+  const { userEmail, jobId, userInfo } = req.body;
+  const user = DB.users.find(u => u.email === userEmail);
+  const job = ADMIN_JOBS.find(j => j.id === jobId);
+
+  if (!user) return res.json({ success: false, message: 'User not found' });
+  if (!job) return res.json({ success: false, message: 'Job not found' });
+  if (user.permanentCompany) return res.json({ success: false, message: 'You are already joined. Join now adoc are preference.' });
+  if (user.joinStatus === 'pending') return res.json({ success: false, message: 'Your application is already pending.' });
+
+  const newApp = {
+    id: Date.now().toString(),
+    userEmail,
+    jobId,
+    companyName: job.companyName,
+    status: 'pending',
+    userInfo
+  };
+  APPLICATIONS.push(newApp);
+  user.joinStatus = 'pending';
+
+  res.json({ success: true, message: 'Application submitted successfully. Joining on the way!' });
+});
+
+// Get Permanent jobs for home tab
+app.get('/v1/jobs/permanent', (req, res) => {
+  const permJobs = ADMIN_JOBS.filter(j => j.jobType === 'permanent');
+  res.json({ success: true, data: permJobs });
+});
+
+// Get Adoc jobs for adoc tab (Filtered by user's company)
+app.post('/v1/jobs/adoc/filtered', (req, res) => {
+  const { userEmail } = req.body;
+  const user = DB.users.find(u => u.email === userEmail);
+  const adocJobs = ADMIN_JOBS.filter(j => j.jobType === 'adoc');
+  
+  if (!user || !user.permanentCompany) {
+    // Not joined anywhere, show all adoc jobs
+    return res.json({ success: true, data: adocJobs });
+  }
+
+  // Filter out adoc jobs from their own permanent company
+  const filteredAdocs = adocJobs.filter(j => j.companyName !== user.permanentCompany);
+  res.json({ success: true, data: filteredAdocs });
+});
+
+// Scan Adoc QR to join 1-day job
+app.post('/v1/adoc/scan', (req, res) => {
+  const { userEmail, jobId } = req.body;
+  const user = DB.users.find(u => u.email === userEmail);
+  const job = ADMIN_JOBS.find(j => j.id === jobId);
+
+  if (!user) return res.json({ success: false, message: 'User not found' });
+  if (!job || job.jobType !== 'adoc') return res.json({ success: false, message: 'Invalid Adoc Job ID' });
+
+  // Record attendance
+  const record = {
+    jobId: job.id,
+    company: job.companyName,
+    title: job.title,
+    date: new Date().toLocaleDateString(),
+    paymentStatus: 'Pending',
+    timing: '1 Day',
+    help: 'Support active'
+  };
+  
+  user.adocHistory = user.adocHistory || [];
+  user.adocHistory.push(record);
+
+  res.json({ success: true, message: 'Scan successful! Attendance and Payment record added.', data: record });
+});
+
+// Backwards compatibility for dashboard.html loading
+app.get('/v1/jobs/admin', (req, res) => {
+  // Return permanent jobs
+  const permJobs = ADMIN_JOBS.filter(j => j.jobType === 'permanent');
+  res.json({ success: true, data: permJobs });
+});
+
+app.post('/v1/profile/me', (req, res) => {
+  const { email } = req.body;
+  const user = DB.users.find(u => u.email === email) || DB.users[DB.users.length - 1]; // fallback for demo
+  
   if(user) {
-    res.json({ success: true, data: { name: user.name, uid: user.uid, adhar: user.adhar, dob: user.dob, bank: user.bank, phone: user.phone, email: user.email, uai: user.uai } });
+    res.json({ 
+      success: true, 
+      data: { 
+        name: user.name, uid: user.uid, adhar: user.adhar, dob: user.dob, 
+        bank: user.bank, phone: user.phone, email: user.email, uai: user.uai,
+        joinStatus: user.joinStatus, permanentCompany: user.permanentCompany,
+        adocHistory: user.adocHistory || []
+      } 
+    });
   } else {
-    res.json({ success: true, data: { name: '', uid: '', adhar: '', dob: '', bank: '', phone: '', email: '', uai: '' } });
+    res.json({ success: false, message: 'User not found' });
   }
 });
 
