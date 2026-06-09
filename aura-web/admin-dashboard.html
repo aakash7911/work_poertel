@@ -136,7 +136,8 @@
             <input type="text" id="j-company" class="input" placeholder="Company Name (e.g. Google)">
             <input type="text" id="j-title" class="input" placeholder="Job Title (e.g. Software Engineer)">
             <textarea id="j-desc" class="input" placeholder="Job Description..."></textarea>
-            <input type="text" id="j-poster" class="input" placeholder="Cloudinary Poster URL">
+            <label style="display:block; margin: 10px 0 5px 0;">Upload Job Poster:</label>
+            <input type="file" id="j-image" class="input" accept="image/*">
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeModal('jobModal')">Cancel</button>
                 <button class="btn btn-submit" onclick="postJob()">Post Job</button>
@@ -185,9 +186,14 @@
                 <table style="width: 100%; border-collapse: collapse; text-align: left;">
                     <thead>
                         <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
+                            <th style="padding: 8px; border: 1px solid #ccc;">Photo</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Name</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Email</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Phone</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Aadhar</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">PAN</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">UAN/PF</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">DOB</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Role</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Company</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Status</th>
@@ -220,11 +226,31 @@
         async function postJob() {
             const title = document.getElementById('j-title').value;
             const description = document.getElementById('j-desc').value;
-            const posterUrl = document.getElementById('j-poster').value;
             const companyName = document.getElementById('j-company').value;
             const jobType = document.getElementById('j-type').value;
+            const imageFile = document.getElementById('j-image').files[0];
 
             if(!title || !companyName) return alert('Title and Company Name are required!');
+            
+            let posterUrl = '';
+            if (imageFile) {
+                const formData = new FormData();
+                formData.append('image', imageFile);
+                try {
+                    const uploadRes = await fetch('/v1/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const uploadData = await uploadRes.json();
+                    if(uploadData.success) {
+                        posterUrl = uploadData.url;
+                    } else {
+                        return alert('Image upload failed: ' + uploadData.message);
+                    }
+                } catch(e) {
+                    return alert('Image upload error');
+                }
+            }
 
             try {
                 const res = await fetch('/v1/jobs/admin', {
@@ -238,7 +264,7 @@
                     closeModal('jobModal');
                     document.getElementById('j-title').value = '';
                     document.getElementById('j-desc').value = '';
-                    document.getElementById('j-poster').value = '';
+                    document.getElementById('j-image').value = '';
                     document.getElementById('j-company').value = '';
                 }
             } catch (err) {
@@ -388,11 +414,17 @@
 
                 let html = '';
                 data.data.forEach(u => {
+                    let photoHtml = u.profilePic ? `<img src="${u.profilePic}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">` : 'No Image';
                     html += `
                         <tr style="border-bottom: 1px solid #ccc;">
+                            <td style="padding: 8px; border: 1px solid #ccc;">${photoHtml}</td>
                             <td style="padding: 8px; border: 1px solid #ccc;">${u.name}</td>
                             <td style="padding: 8px; border: 1px solid #ccc;">${u.email}</td>
                             <td style="padding: 8px; border: 1px solid #ccc;">${u.phone || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.adhar || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.pan || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.uai || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.dob || 'N/A'}</td>
                             <td style="padding: 8px; border: 1px solid #ccc;">${u.role}</td>
                             <td style="padding: 8px; border: 1px solid #ccc; font-weight:bold; color:${u.permanentCompany !== 'None' ? 'green' : 'black'};">${u.permanentCompany}</td>
                             <td style="padding: 8px; border: 1px solid #ccc; color:${u.joinStatus === 'pending' ? 'orange' : (u.joinStatus === 'resigning' ? 'red' : 'black')};">${u.joinStatus}</td>
@@ -401,7 +433,7 @@
                 });
                 document.getElementById('all-users-list').innerHTML = html;
             } catch (err) {
-                document.getElementById('all-users-list').innerHTML = '<tr><td colspan="6" style="padding:10px; text-align:center;">Error loading data.</td></tr>';
+                document.getElementById('all-users-list').innerHTML = '<tr><td colspan="11" style="padding:10px; text-align:center;">Error loading data.</td></tr>';
             }
         }
     </script>

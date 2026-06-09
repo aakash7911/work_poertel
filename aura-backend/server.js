@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 app.use(cors());
@@ -15,6 +17,17 @@ app.use(express.static(path.join(__dirname, '../aura-web')));
 app.get('/', (req, res) => {
   res.redirect('/login.html');
 });
+
+// CLOUDINARY CONFIG
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// MULTER CONFIG (Store in memory temporarily)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // MOCK DATABASE (To be replaced with MongoDB later)
 const DB = {
@@ -42,6 +55,9 @@ const RESIGNATIONS = []; // { id, userEmail, companyName, reason, status: 'pendi
     bank: 'BANK-000',
     phone: '9999999999',
     uai: 'UAI-ADMIN',
+    pan: 'PAN-ADMIN',
+    profilePic: '',
+    profileVerified: true,
     role: 'admin',
     joinStatus: null,
     permanentCompany: null,
@@ -119,7 +135,8 @@ app.post('/v1/auth/verify-otp', async (req, res) => {
       name: store.name,
       isVerified: true,
       uid: `UID-${Math.floor(Math.random()*10000)}`,
-      adhar: '', dob: '', bank: '', phone: '', uai: '',
+      adhar: '', dob: '', bank: '', phone: '', uai: '', pan: '', profilePic: '',
+      profileVerified: false,
       role: 'user',
       joinStatus: null,
       permanentCompany: null,
@@ -182,6 +199,23 @@ app.post('/v1/auth/reset-password', async (req, res) => {
   } else {
     res.json({ success: false, message: 'User not found' });
   }
+});
+
+// --- IMAGE UPLOAD ENDPOINT ---
+app.post('/v1/upload', upload.single('image'), (req, res) => {
+  if (!req.file) return res.json({ success: false, message: 'No file uploaded' });
+
+  // Convert buffer to Base64 to send to Cloudinary
+  const b64 = Buffer.from(req.file.buffer).toString('base64');
+  const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+
+  cloudinary.uploader.upload(dataURI, { resource_type: "auto" }, (error, result) => {
+    if (error) {
+      console.error(error);
+      return res.json({ success: false, message: 'Cloudinary upload failed' });
+    }
+    res.json({ success: true, url: result.secure_url });
+  });
 });
 
 // --- ADMIN ENDPOINTS ---
@@ -267,6 +301,11 @@ app.get('/v1/admin/users', (req, res) => {
     name: u.name,
     email: u.email,
     phone: u.phone,
+    adhar: u.adhar,
+    pan: u.pan,
+    uai: u.uai,
+    dob: u.dob,
+    profilePic: u.profilePic,
     role: u.role,
     permanentCompany: u.permanentCompany || 'None',
     joinStatus: u.joinStatus || 'Not Joined'
@@ -279,11 +318,12 @@ app.get('/v1/admin/users', (req, res) => {
 
 // Apply for a permanent job
 app.post('/v1/jobs/apply', (req, res) => {
-  const { userEmail, jobId, userInfo } = req.body;
+  const { userEmail, jobId } = req.body;
   const user = DB.users.find(u => u.email === userEmail);
   const job = ADMIN_JOBS.find(j => j.id === jobId);
 
   if (!user) return res.json({ success: false, message: 'User not found' });
+  if (!user.profileVerified) return res.json({ success: false, message: 'Your profile is not verified. Please verify your profile first.' });
   if (!job) return res.json({ success: false, message: 'Job not found' });
   if (user.permanentCompany) return res.json({ success: false, message: 'You are already joined. Join now adoc are preference.' });
   if (user.joinStatus === 'pending') return res.json({ success: false, message: 'Your application is already pending.' });
@@ -294,7 +334,7 @@ app.post('/v1/jobs/apply', (req, res) => {
     jobId,
     companyName: job.companyName,
     status: 'pending',
-    userInfo
+    userInfo: `Name: ${user.name}, Phone: ${user.phone}, Aadhar: ${user.adhar}, PAN: ${user.pan}, UAN/PF: ${user.uai}, DOB: ${user.dob}`
   };
   APPLICATIONS.push(newApp);
   user.joinStatus = 'pending';
@@ -378,6 +418,7 @@ app.get('/v1/jobs/admin', (req, res) => {
   res.json({ success: true, data: permJobs });
 });
 
+// Profile Fetch
 app.post('/v1/profile/me', (req, res) => {
   const { email } = req.body;
   const user = DB.users.find(u => u.email === email) || DB.users[DB.users.length - 1]; // fallback for demo
@@ -388,6 +429,7 @@ app.post('/v1/profile/me', (req, res) => {
       data: { 
         name: user.name, uid: user.uid, adhar: user.adhar, dob: user.dob, 
         bank: user.bank, phone: user.phone, email: user.email, uai: user.uai,
+        pan: user.pan, profilePic: user.profilePic, profileVerified: user.profileVerified,
         joinStatus: user.joinStatus, permanentCompany: user.permanentCompany,
         adocHistory: user.adocHistory || []
       } 
@@ -395,6 +437,23 @@ app.post('/v1/profile/me', (req, res) => {
   } else {
     res.json({ success: false, message: 'User not found' });
   }
+});
+
+// Profile Verify
+app.post('/v1/profile/verify', (req, res) => {
+  const { email, phone, adhar, pan, uai, dob, profilePic } = req.body;
+  const user = DB.users.find(u => u.email === email);
+  if (!user) return res.json({ success: false, message: 'User not found' });
+
+  user.phone = phone;
+  user.adhar = adhar;
+  user.pan = pan;
+  user.uai = uai;
+  user.dob = dob;
+  user.profilePic = profilePic;
+  user.profileVerified = true;
+
+  res.json({ success: true, message: 'Profile verified successfully!' });
 });
 
 const PORT = process.env.PORT || 3000;
