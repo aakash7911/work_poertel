@@ -261,6 +261,19 @@ app.post('/v1/admin/resignations/approve', (req, res) => {
   res.json({ success: true, message: 'Resignation approved. User removed from company.' });
 });
 
+// Admin views all users
+app.get('/v1/admin/users', (req, res) => {
+  const usersList = DB.users.map(u => ({
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    role: u.role,
+    permanentCompany: u.permanentCompany || 'None',
+    joinStatus: u.joinStatus || 'Not Joined'
+  }));
+  res.json({ success: true, data: usersList });
+});
+
 
 // --- USER ENDPOINTS ---
 

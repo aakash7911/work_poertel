@@ -115,6 +115,12 @@
                     <i class="fa-solid fa-gear"></i>
                     <span>Settings<br><small>(TBD)</small></span>
                 </div>
+
+                <!-- Button 10: All Users -->
+                <div class="admin-card" onclick="loadAllUsers()">
+                    <i class="fa-solid fa-address-book"></i>
+                    <span>All Users<br><small>(Database)</small></span>
+                </div>
             </div>
         </div>
     </div>
@@ -167,6 +173,33 @@
             <div id="resign-list" style="max-height: 400px; overflow-y: auto;">Loading...</div>
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeModal('resignModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALL USERS MODAL -->
+    <div class="modal" id="usersModal">
+        <div class="modal-content" style="max-width: 800px; width: 95%;">
+            <h3>All Registered Users</h3>
+            <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
+                            <th style="padding: 8px; border: 1px solid #ccc;">Name</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Email</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Phone</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Role</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Company</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-users-list">
+                        <!-- Data will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('usersModal')">Close</button>
             </div>
         </div>
     </div>
@@ -339,6 +372,37 @@
                 alert(data.message);
                 if(data.success) loadResignations();
             } catch (err) { alert('Error approving'); }
+        }
+
+        async function loadAllUsers() {
+            openModal('usersModal');
+            document.getElementById('all-users-list').innerHTML = '<tr><td colspan="6" style="padding:10px; text-align:center;">Loading...</td></tr>';
+            try {
+                const res = await fetch('/v1/admin/users');
+                const data = await res.json();
+                
+                if (data.data.length === 0) {
+                    document.getElementById('all-users-list').innerHTML = '<tr><td colspan="6" style="padding:10px; text-align:center;">No users found.</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                data.data.forEach(u => {
+                    html += `
+                        <tr style="border-bottom: 1px solid #ccc;">
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.name}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.email}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.phone || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.role}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc; font-weight:bold; color:${u.permanentCompany !== 'None' ? 'green' : 'black'};">${u.permanentCompany}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc; color:${u.joinStatus === 'pending' ? 'orange' : (u.joinStatus === 'resigning' ? 'red' : 'black')};">${u.joinStatus}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('all-users-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('all-users-list').innerHTML = '<tr><td colspan="6" style="padding:10px; text-align:center;">Error loading data.</td></tr>';
+            }
         }
     </script>
 </body>
