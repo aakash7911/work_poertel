@@ -245,18 +245,12 @@
         </div>
 
         <!-- 5. Profile Tab -->
-        <div id="tab-profile" class="tab-content">
-            <div class="profile-container">
-                <div class="prof-header">
-                    <h2>Profile</h2>
-                    <button class="verify-btn">Verify btn</button>
-                </div>
-                <div style="border-bottom: 1px solid #000;"></div>
-                
-                <div class="prof-photo">Photo</div>
-                
-                <div id="profile-fields">Loading...</div>
+        <div id="tab-profile" class="tab-content" style="padding:20px;">
+            <h2 style="text-align:center;">My Profile</h2>
+            <div id="profile-fields" style="display:flex; flex-direction:column; gap:10px; align-items:center;">
+                <!-- Dynamically injected -->
             </div>
+            <button id="verify-btn" class="btn-submit" style="display:none; width:100%; max-width:300px; margin: 20px auto; padding:15px; border-radius:10px; background:#000; color:#fff; border:none; cursor:pointer;" onclick="verifyProfile()">Verify & Save</button>
         </div>
 
         <!-- Bottom Navbar -->
