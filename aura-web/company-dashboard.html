@@ -101,6 +101,15 @@
     <div class="modal" id="workersModal">
         <div class="modal-content">
             <h3 style="margin-top: 0; border-bottom: 2px solid #000; padding-bottom: 10px;">Permanent Workers</h3>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="date" id="attendance-date" class="input" style="margin: 0; flex: 1;">
+                <select id="attendance-shift" class="input" style="margin: 0; flex: 1;">
+                    <option value="Day Shift">Day Shift</option>
+                    <option value="Night Shift">Night Shift</option>
+                </select>
+            </div>
+
             <div id="workers-list">
                 <p style="text-align:center;">Loading workers...</p>
             </div>
@@ -131,6 +140,9 @@
 
         function openModal(id) {
             document.getElementById(id).classList.add('active');
+            if(id === 'workersModal') {
+                document.getElementById('attendance-date').valueAsDate = new Date();
+            }
         }
 
         function closeModal(id) {
@@ -166,8 +178,8 @@
                                 </div>
                             </div>
                             <div class="btn-row">
-                                <button class="btn btn-present" onclick="markAttendance('${user.email}', 'Present')">Mark Present</button>
-                                <button class="btn btn-absent" onclick="markAttendance('${user.email}', 'Absent')">Mark Absent</button>
+                                <button class="btn btn-present" onclick="markAttendance('${user.email}', 'Yes')">Yes</button>
+                                <button class="btn btn-absent" onclick="markAttendance('${user.email}', 'No')">No</button>
                             </div>
                         </div>
                     `;
@@ -178,21 +190,26 @@
             }
         }
 
-        async function markAttendance(userEmail, status) {
-            const date = prompt(`Enter date for this attendance (default: today's date)`, new Date().toLocaleDateString('en-GB'));
-            if(date === null) return; // User cancelled
+        async function markAttendance(userEmail, isPresent) {
+            const dateVal = document.getElementById('attendance-date').value;
+            const shiftVal = document.getElementById('attendance-shift').value;
+            if(!dateVal) return alert('Please select a date.');
+            
+            // Format the date to match the standard DD/MM/YYYY
+            const d = new Date(dateVal);
+            const formattedDate = d.toLocaleDateString('en-GB');
+
+            // Set status like "Yes (Day Shift)" or "No (Night Shift)"
+            const status = `${isPresent} (${shiftVal})`;
 
             try {
                 const res = await fetch('/v1/company/mark-attendance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ companyEmail, userEmail, status, date })
+                    body: JSON.stringify({ companyEmail, userEmail, status, date: formattedDate })
                 });
                 const data = await res.json();
                 alert(data.message);
-                if(data.success) {
-                    // Optional: You could reload workers here, or just show the alert
-                }
             } catch (err) { alert('Error marking attendance'); }
         }
 
