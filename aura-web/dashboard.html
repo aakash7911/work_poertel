@@ -509,16 +509,16 @@
                 // 4. My Job (Adoc History & Current Job)
                 document.getElementById('company-name').innerText = pd.permanentCompany || "No Permanent Company";
                 const attDiv = document.getElementById('attendance-data');
-                if(!pd.adocHistory || pd.adocHistory.length === 0) {
-                    attDiv.innerHTML = '<p style="text-align:center; color:#666;">No adoc attendance records found.</p>';
+                if(!pd.permanentHistory || pd.permanentHistory.length === 0) {
+                    attDiv.innerHTML = '<p style="text-align:center; color:#666;">No permanent attendance records found.</p>';
                 } else {
-                    attDiv.innerHTML = pd.adocHistory.map(a => `
+                    attDiv.innerHTML = pd.permanentHistory.map(a => `
                         <div class="attendance-card">
                             <div>
                                 <strong>${a.title}</strong> (${a.company})<br>
-                                <small>${a.date} | Payment: ${a.paymentStatus}</small>
+                                <small>${a.date} | Status: ${a.status}</small>
                             </div>
-                            <div class="status-circle">P</div>
+                            <div class="status-circle">${a.status === 'Present' ? 'P' : 'A'}</div>
                         </div>`).join('');
                 }
 

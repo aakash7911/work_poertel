@@ -65,6 +65,13 @@ const userSchema = new mongoose.Schema({
     paymentStatus: String,
     timing: String,
     help: String
+  }],
+  permanentHistory: [{
+    jobId: String,
+    company: String,
+    title: String,
+    date: String,
+    status: String
   }]
 });
 const User = mongoose.model('User', userSchema);
