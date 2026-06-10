@@ -85,6 +85,7 @@
 
         .tab-content {
             flex: 1;
+            min-height: 0; /* Fixes flexbox scrolling bug */
             overflow-y: auto;
             display: none;
             padding-bottom: 80px; /* space for navbar */
@@ -443,8 +444,12 @@
 
                 document.getElementById('profile-fields').innerHTML = `
                     ${statusHtml}
-                    ${pd.profilePic ? `<img src="${pd.profilePic}" style="width:100px; height:100px; border-radius:50%; object-fit:cover; margin-bottom:10px;">` : `<label>Profile Picture:</label><input type="file" id="p-img" class="p-input" accept="image/*" ${pd.profileVerified ? 'disabled' : ''}>`}
-                    <input class="p-input" value="${pd.name}" placeholder="Name" readonly style="width:100%; max-width:300px;">
+                    ${pd.profileVerified ? `<div style="background:#e0f7fa; color:#006064; border:1px solid #b2ebf2; padding:6px 16px; border-radius:20px; font-weight:bold; font-size:12px; margin-bottom:10px; display:inline-flex; align-items:center; gap:6px;"><i class="fa-solid fa-certificate" style="color:#00bcd4"></i> Verified Profile</div>` : ''}
+                    ${pd.profilePic ? `<img src="${pd.profilePic}" style="width:100px; height:100px; border-radius:50%; object-fit:cover; margin-bottom:10px; border: 3px solid ${pd.profileVerified ? '#00bcd4' : '#ccc'}">` : `<label>Profile Picture:</label><input type="file" id="p-img" class="p-input" accept="image/*" ${pd.profileVerified ? 'disabled' : ''}>`}
+                    <div style="width:100%; max-width:300px; position:relative;">
+                        <input class="p-input" value="${pd.name}" placeholder="Name" readonly style="width:100%; box-sizing:border-box; ${pd.profileVerified ? 'padding-right:40px;' : ''}">
+                        ${pd.profileVerified ? `<i class="fa-solid fa-circle-check" style="color:#00bcd4; font-size:20px; position:absolute; right:12px; top:12px;"></i>` : ''}
+                    </div>
                     <div class="p-row" style="width:100%; max-width:300px;"><input class="p-input" value="${pd.uid}" placeholder="UID" readonly> <strong>APP. UID.</strong></div>
                     <input class="p-input" value="${pd.email}" placeholder="Email" readonly style="width:100%; max-width:300px;">
                     
