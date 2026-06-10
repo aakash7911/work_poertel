@@ -88,7 +88,6 @@
             min-height: 0; /* Fixes flexbox scrolling bug */
             overflow-y: auto;
             display: none;
-            padding-bottom: 80px; /* space for navbar */
         }
         .tab-content.active {
             display: block;
@@ -172,8 +171,6 @@
 
         /* Bottom Nav */
         .bottom-nav {
-            position: absolute;
-            bottom: 0; width: 100%;
             background: #fff;
             border-top: 1px solid #eaeaea;
             display: flex;
@@ -433,6 +430,13 @@
                 });
                 const profData = await resProf.json();
                 currentUser = profData.data;
+
+                const profIcon = document.querySelector('.profile-icon');
+                if (currentUser.profilePic) {
+                    profIcon.style.backgroundImage = `url(${currentUser.profilePic})`;
+                    profIcon.style.backgroundSize = 'cover';
+                    profIcon.style.backgroundPosition = 'center';
+                }
 
                 // 1. Profile Tab
                 const pd = currentUser;
