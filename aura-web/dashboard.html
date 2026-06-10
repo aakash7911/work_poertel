@@ -204,28 +204,28 @@
             <button class="sidebar-logout" style="margin-top:0;" onclick="logout()">Log out</button>
         </div>
 
-        <!-- 1. Home Tab -->
-        <div id="tab-home" class="tab-content active">
-            <div class="top-header">
-                <div class="profile-icon" onclick="toggleSidebar()" style="cursor: pointer;"></div>
-                <div class="header-title">
-                    <h2>My Desk</h2>
-                    <p>Welcome back!</p>
-                </div>
-                <i class="fa-regular fa-bell" style="font-size: 24px;"></i>
+        <!-- Global Top Header -->
+        <div class="top-header">
+            <div class="profile-icon" onclick="toggleSidebar()" style="cursor: pointer;"></div>
+            <div class="header-title">
+                <h2 id="header-title-text">My Desk</h2>
+                <p id="header-subtitle-text">Welcome back!</p>
             </div>
-            <div id="admin-jobs" style="margin-top: 20px;">Loading...</div>
+            <i class="fa-regular fa-bell" style="font-size: 24px;"></i>
+        </div>
+
+        <!-- 1. Home Tab -->
+        <div id="tab-home" class="tab-content active" style="padding-top: 20px;">
+            <div id="admin-jobs">Loading...</div>
         </div>
 
         <!-- 2. Adoc Tab -->
-        <div id="tab-adoc" class="tab-content">
-            <div class="generic-header">All Payments [A]</div>
+        <div id="tab-adoc" class="tab-content" style="padding: 20px;">
             <div id="adoc-data">Loading...</div>
         </div>
 
         <!-- 3. Scanner Tab -->
-        <div id="tab-scanner" class="tab-content">
-            <div class="generic-header">Scan</div>
+        <div id="tab-scanner" class="tab-content" style="padding: 20px;">
             <div class="scanner-box">
                 <video id="videoElement" autoplay playsinline></video>
             </div>
@@ -239,17 +239,14 @@
         </div>
 
         <!-- 4. My Job Tab -->
-        <div id="tab-job" class="tab-content">
-            <div class="generic-header" id="company-name">Loading...</div>
+        <div id="tab-job" class="tab-content" style="padding: 20px;">
+            <h3 id="company-name" style="text-align:center;">Loading...</h3>
             <div id="attendance-data">Loading...</div>
         </div>
 
         <!-- 5. Profile Tab -->
         <div id="tab-profile" class="tab-content" style="padding:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; max-width:300px; margin:0 auto;">
-                <h2>My Profile</h2>
-                <button id="verify-btn" style="display:none; padding:8px 16px; border-radius:8px; background:#E47254; color:#fff; border:none; font-weight:bold; cursor:pointer;" onclick="verifyProfile()">Verify</button>
-            </div>
+            <button id="verify-btn" style="display:none; padding:12px; width:100%; border-radius:8px; background:#E47254; color:#fff; border:none; font-weight:bold; cursor:pointer; margin-bottom:15px;" onclick="verifyProfile()">Verify & Save Profile</button>
             <div id="profile-fields" style="display:flex; flex-direction:column; gap:10px; align-items:center;">
                 <!-- Dynamically injected -->
             </div>
@@ -315,6 +312,14 @@
             
             document.getElementById('tab-' + tabId).classList.add('active');
             el.classList.add('active');
+
+            const titleText = document.getElementById('header-title-text');
+            const subText = document.getElementById('header-subtitle-text');
+            if (tabId === 'home') { titleText.innerText = 'My Desk'; subText.innerText = 'Welcome back!'; }
+            if (tabId === 'adoc') { titleText.innerText = 'Adoc Jobs'; subText.innerText = 'Quick Tasks'; }
+            if (tabId === 'scanner') { titleText.innerText = 'Scan QR'; subText.innerText = 'Mark Attendance'; }
+            if (tabId === 'job') { titleText.innerText = 'My Job'; subText.innerText = 'Company details'; }
+            if (tabId === 'profile') { titleText.innerText = 'My Profile'; subText.innerText = 'Manage account'; }
 
             if(tabId === 'scanner') startCamera();
             else stopCamera();
