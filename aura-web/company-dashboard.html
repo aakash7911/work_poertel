@@ -54,7 +54,10 @@
         </div>
 
         <div class="content">
-            <h3 style="margin-top: 0; border-bottom: 2px solid #000; padding-bottom: 10px;">Permanent Workers</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Permanent Workers</h3>
+                <button class="logout-btn" style="background: #28a745; display: flex; align-items: center; gap: 5px;" onclick="exportToExcel()"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
+            </div>
             <div id="workers-list">
                 <p style="text-align:center;">Loading workers...</p>
             </div>
@@ -65,6 +68,7 @@
         const companyEmail = localStorage.getItem('userEmail');
         const companyName = localStorage.getItem('companyName');
         const adocId = localStorage.getItem('adocId');
+        let permanentWorkersData = [];
 
         if(!companyEmail) {
             window.location.href = '/login.html';
@@ -86,8 +90,9 @@
                     body: JSON.stringify({ companyEmail })
                 });
                 const data = await res.json();
+                permanentWorkersData = data.data || [];
                 
-                if (data.data.length === 0) {
+                if (permanentWorkersData.length === 0) {
                     document.getElementById('workers-list').innerHTML = '<p style="text-align:center;">No permanent workers found.</p>';
                     return;
                 }
@@ -135,6 +140,43 @@
                 }
             } catch (err) { alert('Error marking attendance'); }
         }
+
+        function exportToExcel() {
+            if (!permanentWorkersData || permanentWorkersData.length === 0) {
+                alert("No permanent workers data available to export.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            // Header Row
+            csvContent += "Name,Email,Phone,DOB,Aadhar,PAN,UAN/PF,Bank Name,Bank Account,IFSC,Status\\n";
+
+            permanentWorkersData.forEach(user => {
+                const row = [
+                    user.name || 'N/A',
+                    user.email || 'N/A',
+                    user.phone || 'N/A',
+                    user.dob || 'N/A',
+                    user.adhar || 'N/A',
+                    user.pan || 'N/A',
+                    user.uai || 'N/A',
+                    user.bankName || 'N/A',
+                    user.bankAcc || 'N/A',
+                    user.ifsc || 'N/A',
+                    user.joinStatus || 'N/A'
+                ].map(v => `"${v}"`).join(",");
+                csvContent += row + "\\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${companyName}_Permanent_Workers.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
 
         // Initialize
         loadWorkers();
