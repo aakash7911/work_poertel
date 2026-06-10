@@ -194,6 +194,9 @@
                             <th style="padding: 8px; border: 1px solid #ccc;">PAN</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">UAN/PF</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">DOB</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Bank Name</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Bank Acc</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">IFSC</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Role</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Company</th>
                             <th style="padding: 8px; border: 1px solid #ccc;">Status</th>
@@ -402,13 +405,13 @@
 
         async function loadAllUsers() {
             openModal('usersModal');
-            document.getElementById('all-users-list').innerHTML = '<tr><td colspan="6" style="padding:10px; text-align:center;">Loading...</td></tr>';
+            document.getElementById('all-users-list').innerHTML = '<tr><td colspan="14" style="padding:10px; text-align:center;">Loading...</td></tr>';
             try {
                 const res = await fetch('/v1/admin/users');
                 const data = await res.json();
                 
                 if (data.data.length === 0) {
-                    document.getElementById('all-users-list').innerHTML = '<tr><td colspan="6" style="padding:10px; text-align:center;">No users found.</td></tr>';
+                    document.getElementById('all-users-list').innerHTML = '<tr><td colspan="14" style="padding:10px; text-align:center;">No users found.</td></tr>';
                     return;
                 }
 
@@ -425,6 +428,9 @@
                             <td style="padding: 8px; border: 1px solid #ccc;">${u.pan || 'N/A'}</td>
                             <td style="padding: 8px; border: 1px solid #ccc;">${u.uai || 'N/A'}</td>
                             <td style="padding: 8px; border: 1px solid #ccc;">${u.dob || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.bankName || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.bankAcc || 'N/A'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${u.ifsc || 'N/A'}</td>
                             <td style="padding: 8px; border: 1px solid #ccc;">${u.role}</td>
                             <td style="padding: 8px; border: 1px solid #ccc; font-weight:bold; color:${u.permanentCompany !== 'None' ? 'green' : 'black'};">${u.permanentCompany}</td>
                             <td style="padding: 8px; border: 1px solid #ccc; color:${u.joinStatus === 'pending' ? 'orange' : (u.joinStatus === 'resigning' ? 'red' : 'black')};">${u.joinStatus}</td>

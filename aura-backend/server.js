@@ -45,6 +45,9 @@ const userSchema = new mongoose.Schema({
   uid: String,
   adhar: String,
   dob: String,
+  bankAcc: String,
+  ifsc: String,
+  bankName: String,
   bank: String,
   phone: String,
   uai: String,
@@ -314,7 +317,7 @@ app.post('/v1/jobs/apply', async (req, res) => {
 
     await new Application({
       id: Date.now().toString(), userEmail, jobId, companyName: job.companyName, status: 'pending',
-      userInfo: `Name: ${user.name}, Phone: ${user.phone}, Aadhar: ${user.adhar}, PAN: ${user.pan}, UAN/PF: ${user.uai}, DOB: ${user.dob}`
+      userInfo: `Name: ${user.name}, Phone: ${user.phone}, Aadhar: ${user.adhar}, PAN: ${user.pan}, UAN/PF: ${user.uai}, DOB: ${user.dob}, Bank: ${user.bankName} (${user.bankAcc}, IFSC: ${user.ifsc})`
     }).save();
 
     user.joinStatus = 'pending';
@@ -402,12 +405,12 @@ app.post('/v1/profile/me', async (req, res) => {
 });
 
 app.post('/v1/profile/verify', async (req, res) => {
-  const { email, phone, adhar, pan, uai, dob, profilePic } = req.body;
+  const { email, phone, adhar, pan, uai, dob, bankAcc, ifsc, bankName, profilePic } = req.body;
   try {
     const user = await User.findOne({ email });
     if (!user) return res.json({ success: false, message: 'User not found' });
 
-    user.phone = phone; user.adhar = adhar; user.pan = pan; user.uai = uai; user.dob = dob; user.profilePic = profilePic; user.profileVerified = true;
+    user.phone = phone; user.adhar = adhar; user.pan = pan; user.uai = uai; user.dob = dob; user.bankAcc = bankAcc; user.ifsc = ifsc; user.bankName = bankName; user.profilePic = profilePic; user.profileVerified = true;
     await user.save();
     res.json({ success: true, message: 'Profile verified successfully!' });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }

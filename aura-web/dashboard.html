@@ -463,6 +463,10 @@
                     <input id="p-pan" class="p-input ${pd.profileVerified ? 'verified-input' : ''}" value="${pd.pan || ''}" placeholder="PAN Number" ${pd.profileVerified ? 'readonly' : ''} style="width:100%; max-width:300px; ${pd.profileVerified ? 'border-color:green; background:#f0fff0;' : ''}">
                     <input id="p-uan" class="p-input ${pd.profileVerified ? 'verified-input' : ''}" value="${pd.uai || ''}" placeholder="UAN / PF Number" ${pd.profileVerified ? 'readonly' : ''} style="width:100%; max-width:300px; ${pd.profileVerified ? 'border-color:green; background:#f0fff0;' : ''}">
                     <input id="p-dob" class="p-input ${pd.profileVerified ? 'verified-input' : ''}" value="${pd.dob || ''}" placeholder="Date of Birth (DD/MM/YYYY)" ${pd.profileVerified ? 'readonly' : ''} style="width:100%; max-width:300px; ${pd.profileVerified ? 'border-color:green; background:#f0fff0;' : ''}">
+                    <h4 style="margin: 10px 0 0 0; text-align:left; width:100%; max-width:300px;">Bank Details</h4>
+                    <input id="p-bankName" class="p-input ${pd.profileVerified ? 'verified-input' : ''}" value="${pd.bankName || ''}" placeholder="Bank Name (e.g. SBI)" ${pd.profileVerified ? 'readonly' : ''} style="width:100%; max-width:300px; ${pd.profileVerified ? 'border-color:green; background:#f0fff0;' : ''}">
+                    <input id="p-bankAcc" class="p-input ${pd.profileVerified ? 'verified-input' : ''}" value="${pd.bankAcc || ''}" placeholder="Bank Account Number" ${pd.profileVerified ? 'readonly' : ''} style="width:100%; max-width:300px; ${pd.profileVerified ? 'border-color:green; background:#f0fff0;' : ''}">
+                    <input id="p-ifsc" class="p-input ${pd.profileVerified ? 'verified-input' : ''}" value="${pd.ifsc || ''}" placeholder="IFSC Code" ${pd.profileVerified ? 'readonly' : ''} style="width:100%; max-width:300px; ${pd.profileVerified ? 'border-color:green; background:#f0fff0;' : ''}">
                 `;
 
                 if (!pd.profileVerified) {
@@ -549,12 +553,18 @@
             const panEl = document.getElementById('p-pan');
             const uanEl = document.getElementById('p-uan');
             const dobEl = document.getElementById('p-dob');
+            const bankNameEl = document.getElementById('p-bankName');
+            const bankAccEl = document.getElementById('p-bankAcc');
+            const ifscEl = document.getElementById('p-ifsc');
             
             const phone = phoneEl.value.trim();
             const adhar = adharEl.value.trim();
             const pan = panEl.value.trim();
             const uan = uanEl.value.trim();
             const dob = dobEl.value.trim();
+            const bankName = bankNameEl.value.trim();
+            const bankAcc = bankAccEl.value.trim();
+            const ifsc = ifscEl.value.trim().toUpperCase();
             const imgFile = document.getElementById('p-img') ? document.getElementById('p-img').files[0] : null;
 
             let isValid = true;
@@ -563,8 +573,11 @@
             if(!/^[A-Za-z]{5}\d{4}[A-Za-z]{1}$/.test(pan)) { panEl.style.borderColor = 'red'; isValid = false; } else { panEl.style.borderColor = '#ccc'; }
             if(!/^\d{12}$/.test(uan)) { uanEl.style.borderColor = 'red'; isValid = false; } else { uanEl.style.borderColor = '#ccc'; }
             if(!dob) { dobEl.style.borderColor = 'red'; isValid = false; } else { dobEl.style.borderColor = '#ccc'; }
+            if(!bankName) { bankNameEl.style.borderColor = 'red'; isValid = false; } else { bankNameEl.style.borderColor = '#ccc'; }
+            if(!/^\d{9,18}$/.test(bankAcc)) { bankAccEl.style.borderColor = 'red'; isValid = false; } else { bankAccEl.style.borderColor = '#ccc'; }
+            if(!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) { ifscEl.style.borderColor = 'red'; isValid = false; } else { ifscEl.style.borderColor = '#ccc'; }
 
-            if (!isValid) return alert("Please fill details correctly:\n- Phone: 10 digits\n- Aadhar: 12 digits\n- PAN: 5 letters, 4 digits, 1 letter\n- UAN: 12 digits\n- DOB: Required");
+            if (!isValid) return alert("Please fill details correctly:\n- Phone: 10 digits\n- Aadhar: 12 digits\n- PAN: Valid Format\n- UAN: 12 digits\n- DOB: Required\n- Bank Acc: 9-18 digits\n- IFSC: 11 chars (e.g. SBIN0001234)");
             if(!imgFile && !currentUser.profilePic) return alert('Please upload a profile picture!');
 
             const btn = document.getElementById('verify-btn');
@@ -591,7 +604,7 @@
                 const email = localStorage.getItem('userEmail');
                 const res = await fetch(API_BASE + '/profile/verify', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, phone, adhar, pan, uai: uan, dob, profilePic })
+                    body: JSON.stringify({ email, phone, adhar, pan, uai: uan, dob, bankName, bankAcc, ifsc, profilePic })
                 });
                 const data = await res.json();
                 alert(data.message);
