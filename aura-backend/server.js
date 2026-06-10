@@ -271,6 +271,20 @@ app.post('/v1/admin/add-company', async (req, res) => {
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
+app.get('/v1/admin/companies', async (req, res) => {
+  try {
+    const companies = await Company.find({}, '-passwordHash -salt');
+    res.json({ success: true, data: companies });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.delete('/v1/admin/delete-company/:id', async (req, res) => {
+  try {
+    await Company.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Company deleted successfully' });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
 // --- COMPANY PORTAL ENDPOINTS ---
 app.post('/v1/company/permanent-employees', async (req, res) => {
   const { companyEmail } = req.body;

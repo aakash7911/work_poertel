@@ -87,9 +87,9 @@
                 </div>
 
                 <!-- Button 5: Add Company -->
-                <div class="admin-card" onclick="openModal('addCompanyModal')">
+                <div class="admin-card" onclick="loadCompanies()">
                     <i class="fa-solid fa-building"></i>
-                    <span>Add Company<br><small>(Partnership)</small></span>
+                    <span>Manage Companies<br><small>(Partnership)</small></span>
                 </div>
 
                 <!-- Button 6: Manage Jobs -->
@@ -125,17 +125,29 @@
         </div>
     </div>
 
-    <!-- ADD COMPANY MODAL -->
-    <div class="modal" id="addCompanyModal">
-        <div class="modal-content">
-            <h3>Add Company Partnership</h3>
-            <input type="text" id="c-name" class="input" placeholder="Company Name (e.g. Google)">
-            <input type="text" id="c-location" class="input" placeholder="Location (e.g. Banglore)">
-            <input type="email" id="c-email" class="input" placeholder="Login Email">
-            <input type="password" id="c-password" class="input" placeholder="Login Password">
+    <!-- COMPANIES MODAL -->
+    <div class="modal" id="companiesModal">
+        <div class="modal-content" style="max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Manage Companies</h3>
+            </div>
+            
+            <div style="background: #f9f9f9; padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 20px;">
+                <h4 style="margin-top: 0;">Add New Company</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="text" id="c-name" class="input" placeholder="Company Name" style="margin-bottom:0;">
+                    <input type="text" id="c-location" class="input" placeholder="Location" style="margin-bottom:0;">
+                    <input type="email" id="c-email" class="input" placeholder="Login Email" style="margin-bottom:0;">
+                    <input type="password" id="c-password" class="input" placeholder="Login Password" style="margin-bottom:0;">
+                </div>
+                <button class="btn btn-submit" style="width: 100%; margin-top: 10px;" onclick="addCompany()">Register Company</button>
+            </div>
+
+            <h4 style="margin-bottom: 10px;">Registered Companies</h4>
+            <div id="companies-list">Loading...</div>
+
             <div class="btn-row">
-                <button class="btn btn-cancel" onclick="closeModal('addCompanyModal')">Cancel</button>
-                <button class="btn btn-submit" onclick="addCompany()">Register Company</button>
+                <button class="btn btn-cancel" onclick="closeModal('companiesModal')">Close</button>
             </div>
         </div>
     </div>
@@ -255,6 +267,44 @@
             document.getElementById(id).classList.remove('active');
         }
 
+        async function loadCompanies() {
+            openModal('companiesModal');
+            document.getElementById('companies-list').innerHTML = '<p style="text-align:center;">Loading...</p>';
+            try {
+                const res = await fetch('/v1/admin/companies');
+                const data = await res.json();
+                
+                if (data.data.length === 0) {
+                    document.getElementById('companies-list').innerHTML = '<p style="text-align:center;">No companies registered.</p>';
+                    return;
+                }
+
+                let html = '<table style="width:100%; border-collapse:collapse; text-align:left;">';
+                html += '<tr style="background:#f0f0f0;"><th style="padding:8px; border:1px solid #ccc;">Name</th><th style="padding:8px; border:1px solid #ccc;">Adoc ID</th><th style="padding:8px; border:1px solid #ccc;">Action</th></tr>';
+                data.data.forEach(c => {
+                    html += `<tr>
+                        <td style="padding:8px; border:1px solid #ccc;">${c.companyName}</td>
+                        <td style="padding:8px; border:1px solid #ccc;">${c.adocId}</td>
+                        <td style="padding:8px; border:1px solid #ccc; text-align:center;"><button class="btn btn-cancel" style="background:#dc3545; color:#fff; padding:4px 8px; font-size:12px;" onclick="deleteCompany('${c._id}')"><i class="fa-solid fa-trash"></i></button></td>
+                    </tr>`;
+                });
+                html += '</table>';
+                document.getElementById('companies-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('companies-list').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
+            }
+        }
+
+        async function deleteCompany(id) {
+            if(!confirm("Are you sure you want to delete this company?")) return;
+            try {
+                const res = await fetch('/v1/admin/delete-company/' + id, { method: 'DELETE' });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) loadCompanies();
+            } catch (err) { alert('Error deleting company'); }
+        }
+
         async function addCompany() {
             const name = document.getElementById('c-name').value;
             const location = document.getElementById('c-location').value;
@@ -272,11 +322,11 @@
                 const data = await res.json();
                 alert(data.message);
                 if(data.success) {
-                    closeModal('addCompanyModal');
                     document.getElementById('c-name').value = '';
                     document.getElementById('c-location').value = '';
                     document.getElementById('c-email').value = '';
                     document.getElementById('c-password').value = '';
+                    loadCompanies();
                 }
             } catch (e) { alert('Error adding company'); }
         }
