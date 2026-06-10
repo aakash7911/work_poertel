@@ -67,7 +67,8 @@ const userSchema = new mongoose.Schema({
     hours: Number,
     paymentStatus: String,
     timing: String,
-    help: String
+    help: String,
+    isValid: { type: Boolean, default: true }
   }],
   permanentHistory: [{
     jobId: String,
@@ -460,16 +461,16 @@ app.post('/v1/jobs/adoc/filtered', async (req, res) => {
 });
 
 app.post('/v1/adoc/scan', async (req, res) => {
-  const { userEmail, jobId } = req.body;
+  const { userEmail, jobId: adocId } = req.body; // Client sends adocId as jobId
   try {
     const user = await User.findOne({ email: userEmail });
-    const job = await Job.findOne({ id: jobId });
+    const company = await Company.findOne({ adocId: adocId });
 
     if (!user) return res.json({ success: false, message: 'User not found' });
-    if (!job || job.jobType !== 'adoc') return res.json({ success: false, message: 'Invalid Adoc Job ID' });
+    if (!company) return res.json({ success: false, message: 'Invalid Company Adoc ID' });
 
-    // Check if there is an ongoing 'In Progress' adoc session for this job
-    const ongoingIdx = user.adocHistory.findIndex(a => a.jobId === job.id && a.paymentStatus === 'In Progress');
+    // Check if there is an ongoing 'In Progress' adoc session for this company
+    const ongoingIdx = user.adocHistory.findIndex(a => a.company === company.companyName && a.paymentStatus === 'In Progress');
     let record;
     let scanType = 'in';
 
@@ -484,6 +485,13 @@ app.post('/v1/adoc/scan', async (req, res) => {
       const hours = (diffMs / (1000 * 60 * 60)).toFixed(2);
       user.adocHistory[ongoingIdx].hours = parseFloat(hours);
       
+      // Check validation rule
+      if (user.adocHistory[ongoingIdx].hours >= 8) {
+        user.adocHistory[ongoingIdx].isValid = true;
+      } else {
+        user.adocHistory[ongoingIdx].isValid = false;
+      }
+      
       const inTimeStr = user.adocHistory[ongoingIdx].checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const outTimeStr = user.adocHistory[ongoingIdx].checkOutTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       user.adocHistory[ongoingIdx].timing = `${inTimeStr} to ${outTimeStr} (${hours} hrs)`;
@@ -492,15 +500,50 @@ app.post('/v1/adoc/scan', async (req, res) => {
     } else {
       // Check In
       record = {
-        jobId: job.id, company: job.companyName, title: job.title, date: new Date().toLocaleDateString(),
+        jobId: company.adocId, company: company.companyName, title: 'Adoc Shift', date: new Date().toLocaleDateString(),
         checkInTime: new Date(), hours: 0,
-        paymentStatus: 'In Progress', timing: 'In Progress...', help: 'Support active'
+        paymentStatus: 'In Progress', timing: 'In Progress...', help: 'Support active',
+        isValid: true
       };
       user.adocHistory.push(record);
     }
     
     await user.save();
-    res.json({ success: true, message: scanType === 'in' ? 'Check-In Successful!' : 'Check-Out Successful! Payment is pending.', data: record });
+    
+    if (scanType === 'out') {
+      const msg = record.isValid ? 'Check-Out Successful! Shift completed.' : 'Check-Out Successful! Note: Shift was under 8 hours and is marked invalid for you.';
+      res.json({ success: true, message: msg, data: record });
+    } else {
+      res.json({ success: true, message: 'Check-In Successful! Work hard.', data: record });
+    }
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.post('/v1/company/adoc-history', async (req, res) => {
+  const { companyEmail } = req.body;
+  try {
+    const company = await Company.findOne({ email: companyEmail });
+    if (!company) return res.json({ success: false, message: 'Company not found' });
+    
+    const users = await User.find({ "adocHistory.company": company.companyName });
+    let history = [];
+    users.forEach(u => {
+      u.adocHistory.forEach(h => {
+        if (h.company === company.companyName) {
+          history.push({
+            userEmail: u.email,
+            userName: u.name,
+            phone: u.phone,
+            date: h.date,
+            hours: h.hours || 0,
+            paymentStatus: h.paymentStatus,
+            timing: h.timing,
+            isValid: h.isValid
+          });
+        }
+      });
+    });
+    res.json({ success: true, data: history });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
@@ -561,7 +604,8 @@ app.get('/v1/admin/adoc/payments', async (req, res) => {
             hours: a.hours,
             paymentStatus: a.paymentStatus,
             jobId: a.jobId,
-            historyId: a._id
+            historyId: a._id,
+            isValid: a.isValid
           });
         }
       });

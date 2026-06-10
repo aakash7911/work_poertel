@@ -555,10 +555,15 @@
 
                 // Adoc Presents Data
                 const adocPresentsDiv = document.getElementById('adoc-presents-data');
-                if(!pd.adocHistory || pd.adocHistory.length === 0) {
-                    adocPresentsDiv.innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">No adoc attendance records found.</p>';
+                
+                // Filter out invalid shifts for the user view
+                const validAdocHistory = pd.adocHistory ? pd.adocHistory.filter(a => a.isValid !== false) : [];
+
+                if(validAdocHistory.length === 0) {
+                    adocPresentsDiv.innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">No valid adoc attendance records found.</p>';
                 } else {
-                    adocPresentsDiv.innerHTML = pd.adocHistory.map(a => `
+                    validAdocHistory.reverse(); // Show latest first
+                    adocPresentsDiv.innerHTML = validAdocHistory.map(a => `
                         <div style="border: 2px solid #000; border-radius: 4px; margin-bottom: 15px; background: #fff;">
                             <div style="border-bottom: 1px solid #000; padding: 8px 12px; font-weight: bold; background: #f9f9f9;">Company Name: ${a.company}</div>
                             <div style="border-bottom: 1px solid #000; padding: 8px 12px;">Timing: ${a.timing || 'In Progress...'}</div>
@@ -575,7 +580,7 @@
 
         // Mock Scanner Button (Since we can't read real QR codes easily in browser without a library)
         document.querySelector('.scan-btn').addEventListener('click', async () => {
-            const jobId = prompt("Mock Scanner: Enter the Adoc Job ID to join:");
+            const jobId = prompt("Mock QR Scanner: Enter the Company Adoc ID (e.g. COMP-1234):");
             if(!jobId) return;
             const email = localStorage.getItem('userEmail');
             

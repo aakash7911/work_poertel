@@ -601,10 +601,12 @@
                         let actionHtml = r.paymentStatus === 'Pending' 
                             ? `<button class="btn btn-submit" style="padding: 6px 10px; font-size: 12px; background: #000;" onclick="approveAdocPayment('${r.userEmail}', '${r.historyId}')">Approve Payment</button>`
                             : `<span style="color: green; font-weight: bold;">Approved</span>`;
+                            
+                        const invalidTag = r.isValid === false ? '<br><span style="color:red; font-size:10px; font-weight:bold; border:1px solid red; padding:2px 4px; border-radius:4px;">INVALID (<8h)</span>' : '';
 
                         html += `
                             <tr>
-                                <td style="padding: 8px; border: 1px solid #ccc;">${r.userName || 'N/A'}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.userName || 'N/A'} ${invalidTag}</td>
                                 <td style="padding: 8px; border: 1px solid #ccc;">${r.mobile || 'N/A'}</td>
                                 <td style="padding: 8px; border: 1px solid #ccc;">${r.adhar || 'N/A'}</td>
                                 <td style="padding: 8px; border: 1px solid #ccc;">${r.bankName || 'N/A'}</td>

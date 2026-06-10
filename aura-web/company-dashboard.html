@@ -85,9 +85,9 @@
                     <i class="fa-solid fa-file-excel"></i>
                     <span>Export Excel<br><small>(Download Data)</small></span>
                 </div>
-                <div class="admin-card" onclick="alert('Coming soon!')">
+                <div class="admin-card" onclick="openAdocModal()">
                     <i class="fa-solid fa-clock"></i>
-                    <span>Adoc Workers<br><small>(TBD)</small></span>
+                    <span>Adoc Workers<br><small>(Manage Adoc)</small></span>
                 </div>
                 <div class="admin-card" onclick="alert('Coming soon!')">
                     <i class="fa-solid fa-gear"></i>
@@ -149,6 +149,30 @@
             </div>
         </div>
     </div>
+
+    <!-- ADOC MODAL -->
+    <div class="modal" id="adocModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #000; padding-bottom: 10px;">Adoc Workers</h3>
+            
+            <div style="background: #eef7ff; padding: 15px; border: 1px solid #b8daff; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                <h4 style="margin: 0 0 10px 0; color: #004085;">Your Company Adoc ID</h4>
+                <div style="font-size: 24px; font-weight: bold; color: #000; letter-spacing: 2px; padding: 10px; background: #fff; border: 2px dashed #004085; border-radius: 8px; display: inline-block;">
+                    <span id="display-adoc-id">Loading...</span>
+                </div>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">Ask adoc workers to enter this ID to check in and out.</p>
+            </div>
+
+            <h4 style="margin-bottom: 10px;">Recent Adoc Attendance</h4>
+            <div id="adoc-list" style="max-height: 300px; overflow-y: auto;">
+                <p style="text-align:center;">Loading adoc history...</p>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('adocModal')">Close</button>
+            </div>
+        </div>
+    </div>
     </div>
 
     <script>
@@ -174,6 +198,12 @@
             if(id === 'workersModal') {
                 document.getElementById('attendance-date').valueAsDate = new Date();
             }
+        }
+
+        function openAdocModal() {
+            document.getElementById('display-adoc-id').innerText = adocId || 'N/A';
+            openModal('adocModal');
+            loadAdocWorkers();
         }
 
         function closeModal(id) {
@@ -235,6 +265,49 @@
             } catch (err) {
                 document.getElementById('workers-list').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
                 document.getElementById('export-workers-list').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
+            }
+        }
+
+        async function loadAdocWorkers() {
+            document.getElementById('adoc-list').innerHTML = '<p style="text-align:center;">Loading adoc history...</p>';
+            try {
+                const res = await fetch('/v1/company/adoc-history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyEmail })
+                });
+                const data = await res.json();
+                
+                if (!data.data || data.data.length === 0) {
+                    document.getElementById('adoc-list').innerHTML = '<p style="text-align:center;">No adoc records found.</p>';
+                    return;
+                }
+
+                // Sort by most recent
+                data.data.reverse();
+
+                let html = '';
+                data.data.forEach(record => {
+                    const statusColor = record.paymentStatus === 'In Progress' ? '#ffc107' : (record.paymentStatus === 'Pending' ? '#17a2b8' : '#28a745');
+                    const invalidTag = record.isValid === false ? '<span style="color:red; font-size:10px; font-weight:bold; border:1px solid red; padding:2px 4px; border-radius:4px; margin-left:5px;">INVALID (<8h)</span>' : '';
+                    html += `
+                        <div class="worker-card" style="padding: 10px; margin-bottom: 10px;">
+                            <div style="display:flex; justify-content: space-between; align-items:flex-start;">
+                                <div>
+                                    <h4 style="margin:0 0 5px 0; font-size:14px;">${record.userName} ${invalidTag}</h4>
+                                    <p style="margin:0 0 2px 0; font-size:12px; color:#666;">Date: ${record.date} | Hours: ${record.hours}</p>
+                                    <p style="margin:0; font-size:12px; color:#666;">${record.timing}</p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="font-size:12px; font-weight:bold; color:${statusColor};">${record.paymentStatus}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('adoc-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('adoc-list').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
             }
         }
 
