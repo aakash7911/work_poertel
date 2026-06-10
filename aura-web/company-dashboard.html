@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Dashboard - Aura</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+            background-color: #f9f0e4; display: flex; justify-content: center; height: 100vh;
+        }
+        .app-container {
+            width: 100%; max-width: 400px; height: 100vh; background-color: #f9f0e4;
+            display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #000; color: #fff; padding: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .header h2 { margin: 0; font-size: 20px; }
+        .logout-btn { background: #E47254; border: none; padding: 6px 12px; color: #fff; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .content { padding: 20px; overflow-y: auto; flex: 1; }
+        
+        .worker-card {
+            background: #fff; border: 2px solid #000; border-radius: 16px; padding: 15px;
+            margin-bottom: 15px; box-shadow: 4px 4px 0 #000; display: flex; flex-direction: column;
+        }
+        .worker-info {
+            display: flex; gap: 15px; align-items: center; margin-bottom: 15px;
+            border-bottom: 1px solid #eee; padding-bottom: 10px;
+        }
+        .worker-photo {
+            width: 50px; height: 50px; border-radius: 50%; border: 2px solid #000; object-fit: cover;
+        }
+        .worker-details h4 { margin: 0 0 5px 0; font-size: 16px; }
+        .worker-details p { margin: 0; font-size: 12px; color: #666; }
+        
+        .btn-row { display: flex; gap: 10px; }
+        .btn { flex: 1; padding: 10px; border: 2px solid #000; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-present { background: #28a745; color: #fff; }
+        .btn-absent { background: #dc3545; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="header">
+            <div>
+                <h2 id="c-name">Company Name</h2>
+                <small id="c-adocid">Adoc ID: Loading...</small>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+
+        <div class="content">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #000; padding-bottom: 10px;">Permanent Workers</h3>
+            <div id="workers-list">
+                <p style="text-align:center;">Loading workers...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const companyEmail = localStorage.getItem('userEmail');
+        const companyName = localStorage.getItem('companyName');
+        const adocId = localStorage.getItem('adocId');
+
+        if(!companyEmail) {
+            window.location.href = '/login.html';
+        }
+
+        document.getElementById('c-name').innerText = companyName || 'Company Portal';
+        document.getElementById('c-adocid').innerText = `Adoc ID: ${adocId || 'N/A'}`;
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/login.html';
+        }
+
+        async function loadWorkers() {
+            try {
+                const res = await fetch('/v1/company/permanent-employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyEmail })
+                });
+                const data = await res.json();
+                
+                if (data.data.length === 0) {
+                    document.getElementById('workers-list').innerHTML = '<p style="text-align:center;">No permanent workers found.</p>';
+                    return;
+                }
+
+                let html = '';
+                data.data.forEach(user => {
+                    let photoHtml = user.profilePic ? `<img src="${user.profilePic}" class="worker-photo">` : `<div class="worker-photo" style="background:#eee; display:flex; align-items:center; justify-content:center; font-size:10px;">No Pic</div>`;
+                    html += `
+                        <div class="worker-card">
+                            <div class="worker-info">
+                                ${photoHtml}
+                                <div class="worker-details">
+                                    <h4>${user.name}</h4>
+                                    <p>Mobile: ${user.phone || 'N/A'}</p>
+                                    <p>Aadhar: ${user.adhar || 'N/A'}</p>
+                                </div>
+                            </div>
+                            <div class="btn-row">
+                                <button class="btn btn-present" onclick="markAttendance('${user.email}', 'Present')">Mark Present</button>
+                                <button class="btn btn-absent" onclick="markAttendance('${user.email}', 'Absent')">Mark Absent</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('workers-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('workers-list').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
+            }
+        }
+
+        async function markAttendance(userEmail, status) {
+            const date = prompt(`Enter date for this attendance (default: today's date)`, new Date().toLocaleDateString('en-GB'));
+            if(date === null) return; // User cancelled
+
+            try {
+                const res = await fetch('/v1/company/mark-attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyEmail, userEmail, status, date })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    // Optional: You could reload workers here, or just show the alert
+                }
+            } catch (err) { alert('Error marking attendance'); }
+        }
+
+        // Initialize
+        loadWorkers();
+    </script>
+</body>
+</html>

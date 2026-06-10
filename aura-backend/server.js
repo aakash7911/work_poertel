@@ -108,6 +108,17 @@ const resignationSchema = new mongoose.Schema({
 });
 const Resignation = mongoose.model('Resignation', resignationSchema);
 
+const companySchema = new mongoose.Schema({
+  companyName: { type: String, required: true },
+  location: String,
+  email: { type: String, unique: true, required: true },
+  passwordHash: String,
+  salt: String,
+  adocId: { type: String, unique: true },
+  createdAt: { type: Date, default: Date.now }
+});
+const Company = mongoose.model('Company', companySchema);
+
 // CREATE ADMIN IF NOT EXISTS
 async function seedAdmin() {
   if (!process.env.MONGODB_URI) return;
@@ -178,6 +189,15 @@ app.post('/v1/auth/verify-otp', async (req, res) => {
 app.post('/v1/auth/login', async (req, res) => {
   const { email, password } = req.body;
   try {
+    // 1. Check Company
+    const company = await Company.findOne({ email });
+    if (company) {
+      const isMatch = bcrypt.compareSync(password, company.passwordHash);
+      if (!isMatch) return res.json({ success: false, message: 'Invalid credentials' });
+      return res.json({ success: true, message: 'Login successful', role: 'company', email: company.email, companyName: company.companyName, adocId: company.adocId });
+    }
+
+    // 2. Check User/Admin
     const user = await User.findOne({ email });
     if (!user) return res.json({ success: false, message: 'Invalid credentials' });
 
@@ -230,6 +250,60 @@ app.post('/v1/upload', upload.single('image'), (req, res) => {
 });
 
 // --- ADMIN ENDPOINTS ---
+app.post('/v1/admin/add-company', async (req, res) => {
+  const { name, location, email, password } = req.body;
+  if (!name || !email || !password) return res.json({ success: false, message: 'Name, Email and Password required' });
+  try {
+    const existing = await Company.findOne({ email });
+    if (existing) return res.json({ success: false, message: 'Company email already exists' });
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.json({ success: false, message: 'Email already used by a user' });
+
+    const salt = bcrypt.genSaltSync(10);
+    const passwordHash = bcrypt.hashSync(password, salt);
+    const adocId = "COMP-" + Math.floor(1000 + Math.random() * 9000);
+
+    const newCompany = new Company({ companyName: name, location, email, passwordHash, salt, adocId });
+    await newCompany.save();
+
+    res.json({ success: true, message: `Company registered successfully! Adoc ID: ${adocId}`, adocId });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+// --- COMPANY PORTAL ENDPOINTS ---
+app.post('/v1/company/permanent-employees', async (req, res) => {
+  const { companyEmail } = req.body;
+  try {
+    const company = await Company.findOne({ email: companyEmail });
+    if(!company) return res.json({ success: false, message: 'Company not found' });
+
+    const employees = await User.find({ permanentCompany: company.companyName, joinStatus: 'approved' });
+    res.json({ success: true, data: employees });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.post('/v1/company/mark-attendance', async (req, res) => {
+  const { companyEmail, userEmail, status, date } = req.body;
+  try {
+    const company = await Company.findOne({ email: companyEmail });
+    if(!company) return res.json({ success: false, message: 'Company not found' });
+
+    const user = await User.findOne({ email: userEmail, permanentCompany: company.companyName });
+    if(!user) return res.json({ success: false, message: 'User not found or not in your company' });
+
+    user.permanentHistory.push({
+      jobId: 'MANUAL',
+      company: company.companyName,
+      title: 'Permanent Role',
+      date: date || new Date().toLocaleDateString('en-GB'),
+      status: status // 'Present' or 'Absent'
+    });
+
+    await user.save();
+    res.json({ success: true, message: `Marked as ${status}` });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
 app.post('/v1/jobs/admin', async (req, res) => {
   const { title, description, posterUrl, companyName, jobType } = req.body;
   if (!title || !companyName || !jobType) return res.json({ success: false, message: 'Title, Company Name, and Job Type are required' });

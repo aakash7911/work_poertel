@@ -87,7 +87,7 @@
                 </div>
 
                 <!-- Button 5: Add Company -->
-                <div class="admin-card" onclick="alert('Add Company feature coming soon!')">
+                <div class="admin-card" onclick="openModal('addCompanyModal')">
                     <i class="fa-solid fa-building"></i>
                     <span>Add Company<br><small>(Partnership)</small></span>
                 </div>
@@ -121,6 +121,21 @@
                     <i class="fa-solid fa-address-book"></i>
                     <span>All Users<br><small>(Database)</small></span>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD COMPANY MODAL -->
+    <div class="modal" id="addCompanyModal">
+        <div class="modal-content">
+            <h3>Add Company Partnership</h3>
+            <input type="text" id="c-name" class="input" placeholder="Company Name (e.g. Google)">
+            <input type="text" id="c-location" class="input" placeholder="Location (e.g. Banglore)">
+            <input type="email" id="c-email" class="input" placeholder="Login Email">
+            <input type="password" id="c-password" class="input" placeholder="Login Password">
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('addCompanyModal')">Cancel</button>
+                <button class="btn btn-submit" onclick="addCompany()">Register Company</button>
             </div>
         </div>
     </div>
@@ -238,6 +253,32 @@
 
         function closeModal(id) {
             document.getElementById(id).classList.remove('active');
+        }
+
+        async function addCompany() {
+            const name = document.getElementById('c-name').value;
+            const location = document.getElementById('c-location').value;
+            const email = document.getElementById('c-email').value;
+            const password = document.getElementById('c-password').value;
+
+            if(!name || !email || !password) return alert('Name, Email and Password are required');
+
+            try {
+                const res = await fetch('/v1/admin/add-company', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, location, email, password })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    closeModal('addCompanyModal');
+                    document.getElementById('c-name').value = '';
+                    document.getElementById('c-location').value = '';
+                    document.getElementById('c-email').value = '';
+                    document.getElementById('c-password').value = '';
+                }
+            } catch (e) { alert('Error adding company'); }
         }
 
         async function postJob() {
