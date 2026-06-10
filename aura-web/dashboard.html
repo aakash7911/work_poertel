@@ -246,11 +246,13 @@
 
         <!-- 5. Profile Tab -->
         <div id="tab-profile" class="tab-content" style="padding:20px;">
-            <h2 style="text-align:center;">My Profile</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; max-width:300px; margin:0 auto;">
+                <h2>My Profile</h2>
+                <button id="verify-btn" style="display:none; padding:8px 16px; border-radius:8px; background:#E47254; color:#fff; border:none; font-weight:bold; cursor:pointer;" onclick="verifyProfile()">Verify</button>
+            </div>
             <div id="profile-fields" style="display:flex; flex-direction:column; gap:10px; align-items:center;">
                 <!-- Dynamically injected -->
             </div>
-            <button id="verify-btn" class="btn-submit" style="display:none; width:100%; max-width:300px; margin: 20px auto; padding:15px; border-radius:10px; background:#000; color:#fff; border:none; cursor:pointer;" onclick="verifyProfile()">Verify & Save</button>
         </div>
 
         <!-- Bottom Navbar -->
@@ -463,6 +465,7 @@
                 else {
                     adminDiv.innerHTML = homeData.data.map(j => `
                         <div class="card" onclick="applyForJob('${j.id}', '${j.title}')" style="cursor:pointer;">
+                            ${j.posterUrl ? `<img src="${j.posterUrl}" style="width:100%; border-radius:8px; margin-bottom:10px; object-fit:cover;">` : ''}
                             ${j.title} <br><small>${j.companyName}</small>
                         </div>`).join('');
                 }
@@ -478,6 +481,7 @@
                 else {
                     adocDiv.innerHTML = adocData.data.map(i => `
                         <div class="solid-card" style="padding:15px; margin-bottom:10px;">
+                            ${i.posterUrl ? `<img src="${i.posterUrl}" style="width:100%; border-radius:8px; margin-bottom:10px; object-fit:cover;">` : ''}
                             <div class="row"><div class="label">Job:</div><div class="val">${i.title}</div></div>
                             <div class="row"><div class="label">Company:</div><div class="val">${i.companyName}</div></div>
                             <p style="text-align:center; font-size:12px; color:#666;">Scan QR matching ID: ${i.id} to join</p>
@@ -526,14 +530,27 @@
         });
 
         async function verifyProfile() {
-            const phone = document.getElementById('p-phone').value;
-            const adhar = document.getElementById('p-adhar').value;
-            const pan = document.getElementById('p-pan').value;
-            const uan = document.getElementById('p-uan').value;
-            const dob = document.getElementById('p-dob').value;
+            const phoneEl = document.getElementById('p-phone');
+            const adharEl = document.getElementById('p-adhar');
+            const panEl = document.getElementById('p-pan');
+            const uanEl = document.getElementById('p-uan');
+            const dobEl = document.getElementById('p-dob');
+            
+            const phone = phoneEl.value.trim();
+            const adhar = adharEl.value.trim();
+            const pan = panEl.value.trim();
+            const uan = uanEl.value.trim();
+            const dob = dobEl.value.trim();
             const imgFile = document.getElementById('p-img') ? document.getElementById('p-img').files[0] : null;
 
-            if(!phone || !adhar || !pan || !uan || !dob) return alert('Please fill all verification details!');
+            let isValid = true;
+            if(!/^\d{10}$/.test(phone)) { phoneEl.style.borderColor = 'red'; isValid = false; } else { phoneEl.style.borderColor = '#ccc'; }
+            if(!/^\d{12}$/.test(adhar)) { adharEl.style.borderColor = 'red'; isValid = false; } else { adharEl.style.borderColor = '#ccc'; }
+            if(!/^[A-Za-z]{5}\d{4}[A-Za-z]{1}$/.test(pan)) { panEl.style.borderColor = 'red'; isValid = false; } else { panEl.style.borderColor = '#ccc'; }
+            if(!/^\d{12}$/.test(uan)) { uanEl.style.borderColor = 'red'; isValid = false; } else { uanEl.style.borderColor = '#ccc'; }
+            if(!dob) { dobEl.style.borderColor = 'red'; isValid = false; } else { dobEl.style.borderColor = '#ccc'; }
+
+            if (!isValid) return alert("Please fill details correctly:\n- Phone: 10 digits\n- Aadhar: 12 digits\n- PAN: 5 letters, 4 digits, 1 letter\n- UAN: 12 digits\n- DOB: Required");
             if(!imgFile && !currentUser.profilePic) return alert('Please upload a profile picture!');
 
             const btn = document.getElementById('verify-btn');
