@@ -74,10 +74,10 @@
                     <span>Applications<br><small>(Approve Users)</small></span>
                 </div>
 
-                <!-- Button 3: Payments -->
-                <div class="admin-card" onclick="alert('Payments feature coming soon!')">
+                <!-- Button 3: Adoc Payments -->
+                <div class="admin-card" onclick="loadAdocPayments()">
                     <i class="fa-solid fa-file-invoice-dollar"></i>
-                    <span>Payments<br><small>(TBD)</small></span>
+                    <span>Adoc Payments<br><small>(Approve)</small></span>
                 </div>
 
                 <!-- Button 4: Attendance -->
@@ -141,6 +141,20 @@
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeModal('jobModal')">Cancel</button>
                 <button class="btn btn-submit" onclick="postJob()">Post Job</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADOC PAYMENTS MODAL -->
+    <div class="modal" id="adocPaymentsModal">
+        <div class="modal-content" style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Adoc Payments Dashboard</h3>
+                <button class="btn btn-submit" style="background:#28a745;" onclick="downloadAdocExcel()"><i class="fa-solid fa-download"></i> Download Excel</button>
+            </div>
+            <div id="adoc-payments-container">Loading...</div>
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('adocPaymentsModal')">Close</button>
             </div>
         </div>
     </div>
@@ -441,6 +455,133 @@
             } catch (err) {
                 document.getElementById('all-users-list').innerHTML = '<tr><td colspan="11" style="padding:10px; text-align:center;">Error loading data.</td></tr>';
             }
+        }
+
+        let adocDataExport = [];
+
+        async function loadAdocPayments() {
+            openModal('adocPaymentsModal');
+            document.getElementById('adoc-payments-container').innerHTML = '<p style="text-align:center;">Loading...</p>';
+            try {
+                const res = await fetch('/v1/admin/adoc/payments');
+                const data = await res.json();
+                
+                if (data.data.length === 0) {
+                    document.getElementById('adoc-payments-container').innerHTML = '<p style="text-align:center;">No Adoc records found.</p>';
+                    return;
+                }
+
+                adocDataExport = data.data;
+
+                // Group by company
+                const grouped = {};
+                data.data.forEach(r => {
+                    if(!grouped[r.company]) grouped[r.company] = [];
+                    grouped[r.company].push(r);
+                });
+
+                let html = '';
+                for (const company in grouped) {
+                    html += `
+                        <div style="margin-bottom: 20px; border: 2px solid #333; border-radius: 8px; overflow: hidden;">
+                            <div style="background: #E47254; color: #fff; padding: 10px; font-weight: bold; font-size: 16px;">
+                                Company: ${company} <span style="float:right; font-size: 14px;">Total: ${grouped[company].length}</span>
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+                                    <thead>
+                                        <tr style="background: #f4f4f4;">
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Name</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Mobile</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Aadhar</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Bank Name</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Account</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">IFSC</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Timing</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Hours</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Status</th>
+                                            <th style="padding: 8px; border: 1px solid #ccc;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    `;
+
+                    grouped[company].forEach(r => {
+                        let actionHtml = r.paymentStatus === 'Pending' 
+                            ? `<button class="btn btn-submit" style="padding: 6px 10px; font-size: 12px; background: #000;" onclick="approveAdocPayment('${r.userEmail}', '${r.historyId}')">Approve Payment</button>`
+                            : `<span style="color: green; font-weight: bold;">Approved</span>`;
+
+                        html += `
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.userName || 'N/A'}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.mobile || 'N/A'}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.adhar || 'N/A'}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.bankName || 'N/A'}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.bankAcc || 'N/A'}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.ifsc || 'N/A'}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.timing || 'N/A'}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.hours || '0'} hrs</td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">${r.paymentStatus}</td>
+                                <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${actionHtml}</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `</tbody></table></div></div>`;
+                }
+
+                document.getElementById('adoc-payments-container').innerHTML = html;
+            } catch (err) {
+                document.getElementById('adoc-payments-container').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
+            }
+        }
+
+        async function approveAdocPayment(userEmail, historyId) {
+            try {
+                const res = await fetch('/v1/admin/adoc/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userEmail, historyId })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    loadAdocPayments();
+                }
+            } catch (err) { alert('Error approving payment'); }
+        }
+
+        function downloadAdocExcel() {
+            if(!adocDataExport || adocDataExport.length === 0) {
+                alert("No data to export!");
+                return;
+            }
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Company,Name,Mobile,Aadhar,Bank Name,Account No,IFSC,Timing,Hours,Payment Status\n";
+
+            adocDataExport.forEach(r => {
+                let row = [
+                    `"${r.company}"`,
+                    `"${r.userName || ''}"`,
+                    `"${r.mobile || ''}"`,
+                    `"${r.adhar || ''}"`,
+                    `"${r.bankName || ''}"`,
+                    `"${r.bankAcc || ''}"`,
+                    `"${r.ifsc || ''}"`,
+                    `"${r.timing || ''}"`,
+                    `${r.hours || 0}`,
+                    `"${r.paymentStatus}"`
+                ];
+                csvContent += row.join(",") + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "adoc_payments_report.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>

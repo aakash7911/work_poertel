@@ -62,6 +62,9 @@ const userSchema = new mongoose.Schema({
     company: String,
     title: String,
     date: String,
+    checkInTime: Date,
+    checkOutTime: Date,
+    hours: Number,
     paymentStatus: String,
     timing: String,
     help: String
@@ -377,14 +380,39 @@ app.post('/v1/adoc/scan', async (req, res) => {
     if (!user) return res.json({ success: false, message: 'User not found' });
     if (!job || job.jobType !== 'adoc') return res.json({ success: false, message: 'Invalid Adoc Job ID' });
 
-    const record = {
-      jobId: job.id, company: job.companyName, title: job.title, date: new Date().toLocaleDateString(),
-      paymentStatus: 'Pending', timing: '1 Day', help: 'Support active'
-    };
+    // Check if there is an ongoing 'In Progress' adoc session for this job
+    const ongoingIdx = user.adocHistory.findIndex(a => a.jobId === job.id && a.paymentStatus === 'In Progress');
+    let record;
+    let scanType = 'in';
+
+    if (ongoingIdx >= 0) {
+      // Check Out
+      scanType = 'out';
+      user.adocHistory[ongoingIdx].checkOutTime = new Date();
+      user.adocHistory[ongoingIdx].paymentStatus = 'Pending';
+      
+      // Calculate hours
+      const diffMs = user.adocHistory[ongoingIdx].checkOutTime - user.adocHistory[ongoingIdx].checkInTime;
+      const hours = (diffMs / (1000 * 60 * 60)).toFixed(2);
+      user.adocHistory[ongoingIdx].hours = parseFloat(hours);
+      
+      const inTimeStr = user.adocHistory[ongoingIdx].checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const outTimeStr = user.adocHistory[ongoingIdx].checkOutTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      user.adocHistory[ongoingIdx].timing = `${inTimeStr} to ${outTimeStr} (${hours} hrs)`;
+
+      record = user.adocHistory[ongoingIdx];
+    } else {
+      // Check In
+      record = {
+        jobId: job.id, company: job.companyName, title: job.title, date: new Date().toLocaleDateString(),
+        checkInTime: new Date(), hours: 0,
+        paymentStatus: 'In Progress', timing: 'In Progress...', help: 'Support active'
+      };
+      user.adocHistory.push(record);
+    }
     
-    user.adocHistory.push(record);
     await user.save();
-    res.json({ success: true, message: 'Scan successful! Attendance and Payment record added.', data: record });
+    res.json({ success: true, message: scanType === 'in' ? 'Check-In Successful!' : 'Check-Out Successful! Payment is pending.', data: record });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
@@ -420,6 +448,52 @@ app.post('/v1/profile/verify', async (req, res) => {
     user.phone = phone; user.adhar = adhar; user.pan = pan; user.uai = uai; user.dob = dob; user.bankAcc = bankAcc; user.ifsc = ifsc; user.bankName = bankName; user.profilePic = profilePic; user.profileVerified = true;
     await user.save();
     res.json({ success: true, message: 'Profile verified successfully!' });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.get('/v1/admin/adoc/payments', async (req, res) => {
+  try {
+    const users = await User.find({ "adocHistory.paymentStatus": { $in: ['Pending', 'Successful'] } });
+    let records = [];
+    users.forEach(u => {
+      u.adocHistory.forEach(a => {
+        if (a.paymentStatus === 'Pending' || a.paymentStatus === 'Successful') {
+          records.push({
+            userEmail: u.email,
+            userName: u.name,
+            mobile: u.phone,
+            adhar: u.adhar,
+            bankName: u.bankName,
+            bankAcc: u.bankAcc,
+            ifsc: u.ifsc,
+            company: a.company,
+            title: a.title,
+            date: a.date,
+            timing: a.timing,
+            hours: a.hours,
+            paymentStatus: a.paymentStatus,
+            jobId: a.jobId,
+            historyId: a._id
+          });
+        }
+      });
+    });
+    res.json({ success: true, data: records });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.post('/v1/admin/adoc/approve', async (req, res) => {
+  const { userEmail, historyId } = req.body;
+  try {
+    const user = await User.findOne({ email: userEmail });
+    if (!user) return res.json({ success: false, message: 'User not found' });
+    
+    const record = user.adocHistory.id(historyId);
+    if (!record) return res.json({ success: false, message: 'Record not found' });
+    
+    record.paymentStatus = 'Successful';
+    await user.save();
+    res.json({ success: true, message: 'Payment approved successfully!' });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
