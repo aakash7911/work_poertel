@@ -209,19 +209,7 @@
                 <h2 id="header-title-text">My Desk</h2>
                 <p id="header-subtitle-text">Welcome back!</p>
             </div>
-            <i class="fa-regular fa-bell" id="header-bell-icon" style="font-size: 24px;"></i>
-            <button id="header-adoc-btn" style="display:none; padding:8px 16px; background:#28a745; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px; margin-right:10px;" onclick="openModal('adocHistoryModal')">Adoc History</button>
-        </div>
-
-        <!-- Adoc History Modal -->
-        <div class="modal" id="adocHistoryModal">
-            <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
-                <h3 style="text-align:center; margin-top:0;">Adoc History</h3>
-                <div id="adoc-history-data">Loading...</div>
-                <div class="btn-row">
-                    <button class="btn btn-cancel" style="width:100%;" onclick="closeModal('adocHistoryModal')">Close</button>
-                </div>
-            </div>
+            <i class="fa-regular fa-bell" style="font-size: 24px;"></i>
         </div>
 
         <!-- 1. Home Tab -->
@@ -330,16 +318,6 @@
             if (tabId === 'scanner') { titleText.innerText = 'Scan QR'; subText.innerText = 'Mark Attendance'; }
             if (tabId === 'job') { titleText.innerText = 'My Job'; subText.innerText = 'Company details'; }
             if (tabId === 'profile') { titleText.innerText = 'My Profile'; subText.innerText = 'Manage account'; }
-
-            const bellIcon = document.getElementById('header-bell-icon');
-            const adocBtn = document.getElementById('header-adoc-btn');
-            if (tabId === 'adoc') {
-                if(bellIcon) bellIcon.style.display = 'none';
-                if(adocBtn) adocBtn.style.display = 'block';
-            } else {
-                if(bellIcon) bellIcon.style.display = 'block';
-                if(adocBtn) adocBtn.style.display = 'none';
-            }
 
             if(tabId === 'scanner') startCamera();
             else stopCamera();
@@ -531,15 +509,10 @@
                 // 4. My Job (Adoc History & Current Job)
                 document.getElementById('company-name').innerText = pd.permanentCompany || "No Permanent Company";
                 const attDiv = document.getElementById('attendance-data');
-                // Permanent Job Attendance History
-                attDiv.innerHTML = '<p style="text-align:center; color:#666;">No permanent attendance records found.</p>';
-
-                // Adoc History Modal Data
-                const adocDiv = document.getElementById('adoc-history-data');
                 if(!pd.adocHistory || pd.adocHistory.length === 0) {
-                    adocDiv.innerHTML = '<p style="text-align:center; color:#666;">No adoc attendance records found.</p>';
+                    attDiv.innerHTML = '<p style="text-align:center; color:#666;">No adoc attendance records found.</p>';
                 } else {
-                    adocDiv.innerHTML = pd.adocHistory.map(a => `
+                    attDiv.innerHTML = pd.adocHistory.map(a => `
                         <div class="attendance-card">
                             <div>
                                 <strong>${a.title}</strong> (${a.company})<br>
