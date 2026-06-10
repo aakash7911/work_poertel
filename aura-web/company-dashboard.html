@@ -81,7 +81,7 @@
                     <i class="fa-solid fa-users"></i>
                     <span>Permanent Workers<br><small>(Manage Attendance)</small></span>
                 </div>
-                <div class="admin-card" onclick="exportToExcel()">
+                <div class="admin-card" onclick="openModal('exportModal')">
                     <i class="fa-solid fa-file-excel"></i>
                     <span>Export Excel<br><small>(Download Data)</small></span>
                 </div>
@@ -115,6 +115,37 @@
             </div>
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeModal('workersModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPORT MODAL -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #000; padding-bottom: 10px;">Export Attendance Data</h3>
+            
+            <div style="background: #f9f9f9; padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px;">
+                <h4 style="margin-top: 0; margin-bottom: 10px;">Select Date Range</h4>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; font-weight: bold;">From Date:</label>
+                        <input type="date" id="export-start-date" class="input" style="margin-bottom: 0;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; font-weight: bold;">To Date:</label>
+                        <input type="date" id="export-end-date" class="input" style="margin-bottom: 0;">
+                    </div>
+                </div>
+                <button class="btn btn-submit" style="width: 100%; margin-top: 15px; background: #28a745;" onclick="exportBulkAttendance()">Export All Workers Data</button>
+            </div>
+
+            <h4 style="margin-bottom: 10px;">Export Individual Data</h4>
+            <div id="export-workers-list" style="max-height: 300px; overflow-y: auto;">
+                <p style="text-align:center;">Loading workers...</p>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('exportModal')">Close</button>
             </div>
         </div>
     </div>
@@ -161,12 +192,15 @@
                 
                 if (permanentWorkersData.length === 0) {
                     document.getElementById('workers-list').innerHTML = '<p style="text-align:center;">No permanent workers found.</p>';
+                    document.getElementById('export-workers-list').innerHTML = '<p style="text-align:center;">No permanent workers found.</p>';
                     return;
                 }
 
                 let html = '';
+                let exportHtml = '';
                 data.data.forEach(user => {
                     let photoHtml = user.profilePic ? `<img src="${user.profilePic}" class="worker-photo">` : `<div class="worker-photo" style="background:#eee; display:flex; align-items:center; justify-content:center; font-size:10px;">No Pic</div>`;
+                    
                     html += `
                         <div class="worker-card">
                             <div class="worker-info">
@@ -183,10 +217,24 @@
                             </div>
                         </div>
                     `;
+                    exportHtml += `
+                        <div class="worker-card" style="flex-direction: row; justify-content: space-between; align-items: center; padding: 10px;">
+                            <div style="display:flex; align-items:center; gap: 10px;">
+                                ${photoHtml}
+                                <div>
+                                    <h4 style="margin:0; font-size:14px;">${user.name}</h4>
+                                    <p style="margin:0; font-size:12px; color:#666;">${user.phone || 'N/A'}</p>
+                                </div>
+                            </div>
+                            <button class="btn btn-submit" style="flex: none; padding: 8px 15px; font-size: 12px; border-radius: 4px; background: #28a745;" onclick="exportIndividualAttendance('${user.email}')"><i class="fa-solid fa-download"></i> Export</button>
+                        </div>
+                    `;
                 });
                 document.getElementById('workers-list').innerHTML = html;
+                document.getElementById('export-workers-list').innerHTML = exportHtml;
             } catch (err) {
                 document.getElementById('workers-list').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
+                document.getElementById('export-workers-list').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
             }
         }
 
@@ -213,37 +261,88 @@
             } catch (err) { alert('Error marking attendance'); }
         }
 
-        function exportToExcel() {
+        function parseGBDate(str) {
+            if(!str) return new Date(0);
+            const parts = str.split('/');
+            if(parts.length !== 3) return new Date(0);
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+
+        function getFilteredHistory(user) {
+            const startStr = document.getElementById('export-start-date').value;
+            const endStr = document.getElementById('export-end-date').value;
+            
+            if(!startStr || !endStr) return user.permanentHistory || [];
+
+            const startDate = new Date(startStr);
+            startDate.setHours(0,0,0,0);
+            const endDate = new Date(endStr);
+            endDate.setHours(23,59,59,999);
+
+            return (user.permanentHistory || []).filter(h => {
+                const hDate = parseGBDate(h.date);
+                return hDate >= startDate && hDate <= endDate;
+            });
+        }
+
+        function exportBulkAttendance() {
             if (!permanentWorkersData || permanentWorkersData.length === 0) {
-                alert("No permanent workers data available to export.");
-                return;
+                return alert("No data available.");
             }
 
             let csvContent = "data:text/csv;charset=utf-8,";
-            // Header Row
-            csvContent += "Name,Email,Phone,DOB,Aadhar,PAN,UAN/PF,Bank Name,Bank Account,IFSC,Status\\n";
+            csvContent += "Name,Email,Phone,Date,Shift/Status\\n";
 
+            let hasData = false;
             permanentWorkersData.forEach(user => {
+                const history = getFilteredHistory(user);
+                history.forEach(h => {
+                    hasData = true;
+                    const row = [
+                        user.name || 'N/A',
+                        user.email || 'N/A',
+                        user.phone || 'N/A',
+                        h.date || 'N/A',
+                        h.status || 'N/A'
+                    ].map(v => `"${v}"`).join(",");
+                    csvContent += row + "\\n";
+                });
+            });
+
+            if(!hasData) return alert("No attendance records found for the selected date range.");
+
+            downloadCSV(csvContent, `${companyName}_Bulk_Attendance.csv`);
+        }
+
+        function exportIndividualAttendance(email) {
+            const user = permanentWorkersData.find(u => u.email === email);
+            if(!user) return;
+
+            const history = getFilteredHistory(user);
+            if(history.length === 0) return alert("No attendance records found for this user in the selected date range.");
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Name,Email,Phone,Date,Shift/Status\\n";
+
+            history.forEach(h => {
                 const row = [
                     user.name || 'N/A',
                     user.email || 'N/A',
                     user.phone || 'N/A',
-                    user.dob || 'N/A',
-                    user.adhar || 'N/A',
-                    user.pan || 'N/A',
-                    user.uai || 'N/A',
-                    user.bankName || 'N/A',
-                    user.bankAcc || 'N/A',
-                    user.ifsc || 'N/A',
-                    user.joinStatus || 'N/A'
+                    h.date || 'N/A',
+                    h.status || 'N/A'
                 ].map(v => `"${v}"`).join(",");
                 csvContent += row + "\\n";
             });
 
+            downloadCSV(csvContent, `${user.name}_Attendance.csv`);
+        }
+
+        function downloadCSV(csvContent, filename) {
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `${companyName}_Permanent_Workers.csv`);
+            link.setAttribute("download", filename);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
