@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Company Dashboard - Aura</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body {
             margin: 0; padding: 0; font-family: 'Inter', sans-serif;
@@ -160,7 +161,9 @@
                 <div style="font-size: 24px; font-weight: bold; color: #000; letter-spacing: 2px; padding: 10px; background: #fff; border: 2px dashed #004085; border-radius: 8px; display: inline-block;">
                     <span id="display-adoc-id">Loading...</span>
                 </div>
-                <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">Ask adoc workers to enter this ID to check in and out.</p>
+                <div id="qrcode" style="display: flex; justify-content: center; margin: 15px auto;"></div>
+                <button class="btn btn-submit" style="padding: 6px 12px; font-size: 12px; background: #004085;" onclick="downloadQR()"><i class="fa-solid fa-download"></i> Download QR</button>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">Ask adoc workers to scan this QR to check in and out.</p>
             </div>
 
             <h4 style="margin-bottom: 10px;">Recent Adoc Attendance</h4>
@@ -200,10 +203,35 @@
             }
         }
 
+        let qrcodeInstance = null;
+
         function openAdocModal() {
             document.getElementById('display-adoc-id').innerText = adocId || 'N/A';
             openModal('adocModal');
             loadAdocWorkers();
+
+            // Generate QR Code
+            if (adocId) {
+                document.getElementById('qrcode').innerHTML = ''; // clear previous
+                qrcodeInstance = new QRCode(document.getElementById('qrcode'), {
+                    text: adocId,
+                    width: 150,
+                    height: 150,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            }
+        }
+
+        function downloadQR() {
+            const qrCanvas = document.querySelector('#qrcode canvas');
+            if (!qrCanvas) return alert('QR code not generated yet.');
+            
+            const link = document.createElement('a');
+            link.download = `${companyName.replace(/\s+/g, '_')}_Adoc_QR.png`;
+            link.href = qrCanvas.toDataURL("image/png");
+            link.click();
         }
 
         function closeModal(id) {

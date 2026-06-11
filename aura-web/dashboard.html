@@ -6,6 +6,8 @@
     <title>Dashboard - Aura</title>
     <!-- Use FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Code Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body {
             margin: 0;
@@ -235,10 +237,10 @@
 
         <!-- 3. Scanner Tab -->
         <div id="tab-scanner" class="tab-content" style="padding: 20px;">
-            <div class="scanner-box">
-                <video id="videoElement" autoplay playsinline></video>
+            <div class="scanner-box" id="qr-reader" style="border: none; background: transparent; width: 100%; max-width: 300px; height: auto;">
+                <!-- Real Scanner will be injected here -->
             </div>
-            <div class="scan-controls">
+            <div class="scan-controls" style="display:none;">
                 <button class="light-btn" onclick="toggleLight()">
                     <div class="light-inner" id="lightState">Off</div>
                 </button>
@@ -344,19 +346,35 @@
             else stopCamera();
         }
 
-        async function startCamera() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                document.getElementById('videoElement').srcObject = stream;
-                track = stream.getVideoTracks()[0];
-            } catch(e) { console.error("Camera err", e); }
+        let html5QrcodeScanner = null;
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // Stop scanning once successful
+            stopCamera();
+            // decodedText contains the adocId
+            processScan(decodedText);
+        }
+
+        function onScanFailure(error) {
+            // handle scan failure, usually better to ignore and keep scanning
+            // console.warn(`Code scan error = ${error}`);
+        }
+
+        function startCamera() {
+            if(!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "qr-reader",
+                    { fps: 10, qrbox: {width: 250, height: 250} },
+                    /* verbose= */ false);
+            }
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
         }
 
         function stopCamera() {
-            if(stream) {
-                stream.getTracks().forEach(t => t.stop());
-                stream = null; track = null; flashOn = false;
-                document.getElementById('lightState').innerText = 'Off';
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().catch(error => {
+                    console.error("Failed to clear html5QrcodeScanner. ", error);
+                });
             }
         }
 
@@ -581,9 +599,8 @@
             }
         }
 
-        // Mock Scanner Button (Since we can't read real QR codes easily in browser without a library)
-        document.querySelector('.scan-btn').addEventListener('click', async () => {
-            const jobId = prompt("Mock QR Scanner: Enter the Company Adoc ID (e.g. COMP-1234):");
+        // Process real scan result
+        async function processScan(jobId) {
             if(!jobId) return;
             const email = localStorage.getItem('userEmail');
             
@@ -599,7 +616,7 @@
                     switchTab('adoc', document.querySelectorAll('.nav-item')[1]);
                 }
             } catch (err) { alert('Scan failed'); }
-        });
+        }
 
         async function verifyProfile() {
             const phoneEl = document.getElementById('p-phone');
