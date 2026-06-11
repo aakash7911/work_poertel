@@ -647,11 +647,11 @@ app.post('/v1/profile/verify', async (req, res) => {
 
 app.get('/v1/admin/adoc/payments', async (req, res) => {
   try {
-    const users = await User.find({ "adocHistory.paymentStatus": { $in: ['Pending', 'Successful'] } });
+    const users = await User.find({ "adocHistory.paymentStatus": 'Pending' });
     let records = [];
     users.forEach(u => {
       u.adocHistory.forEach(a => {
-        if (a.paymentStatus === 'Pending' || a.paymentStatus === 'Successful') {
+        if (a.paymentStatus === 'Pending') {
           records.push({
             userEmail: u.email,
             userName: u.name,
