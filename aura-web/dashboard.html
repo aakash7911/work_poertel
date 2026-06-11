@@ -563,14 +563,17 @@
                     adocPresentsDiv.innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">No valid adoc attendance records found.</p>';
                 } else {
                     validAdocHistory.reverse(); // Show latest first
-                    adocPresentsDiv.innerHTML = validAdocHistory.map(a => `
-                        <div style="border: 2px solid #000; border-radius: 4px; margin-bottom: 15px; background: #fff;">
-                            <div style="border-bottom: 1px solid #000; padding: 8px 12px; font-weight: bold; background: #f9f9f9;">Company Name: ${a.company}</div>
-                            <div style="border-bottom: 1px solid #000; padding: 8px 12px;">Timing: ${a.timing || 'In Progress...'}</div>
-                            <div style="border-bottom: 1px solid #000; padding: 8px 12px;">Payment: <b>${a.paymentStatus}</b></div>
-                            <div style="padding: 8px 12px; color: blue; cursor: pointer; text-align: center; text-decoration: underline;" onclick="alert('Support requested!')">help</div>
-                        </div>
-                    `).join('');
+                    adocPresentsDiv.innerHTML = validAdocHistory.map(a => {
+                        const statusColor = a.paymentStatus === 'Pending Approval' ? '#fd7e14' : '#000';
+                        return `
+                            <div style="border: 2px solid ${statusColor}; border-radius: 4px; margin-bottom: 15px; background: #fff;">
+                                <div style="border-bottom: 1px solid ${statusColor}; padding: 8px 12px; font-weight: bold; background: ${a.paymentStatus === 'Pending Approval' ? '#fff3cd' : '#f9f9f9'};">Company Name: ${a.company}</div>
+                                <div style="border-bottom: 1px solid ${statusColor}; padding: 8px 12px; color: ${a.paymentStatus === 'Pending Approval' ? '#856404' : '#000'}">Timing: ${a.timing || 'In Progress...'}</div>
+                                <div style="border-bottom: 1px solid ${statusColor}; padding: 8px 12px;">Payment/Status: <b style="color: ${statusColor}">${a.paymentStatus}</b></div>
+                                <div style="padding: 8px 12px; color: blue; cursor: pointer; text-align: center; text-decoration: underline;" onclick="alert('Support requested!')">help</div>
+                            </div>
+                        `;
+                    }).join('');
                 }
 
             } catch (err) {

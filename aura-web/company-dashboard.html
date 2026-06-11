@@ -288,15 +288,23 @@
 
                 let html = '';
                 data.data.forEach(record => {
-                    const statusColor = record.paymentStatus === 'In Progress' ? '#ffc107' : (record.paymentStatus === 'Pending' ? '#17a2b8' : '#28a745');
+                    const statusColor = record.paymentStatus === 'In Progress' ? '#ffc107' : (record.paymentStatus === 'Pending' ? '#17a2b8' : (record.paymentStatus === 'Pending Approval' ? '#fd7e14' : '#28a745'));
                     const invalidTag = record.isValid === false ? '<span style="color:red; font-size:10px; font-weight:bold; border:1px solid red; padding:2px 4px; border-radius:4px; margin-left:5px;">INVALID (<8h)</span>' : '';
+                    
+                    let actionHtml = '';
+                    if (record.paymentStatus === 'Pending Approval') {
+                        actionHtml = `<div style="margin-top:10px;"><button class="btn btn-submit" style="padding:6px 12px; font-size:12px; background:#000;" onclick="approveAdocRequest('${record.userEmail}', '${record.recordId}')">Accept Request</button></div>`;
+                    }
+
                     html += `
                         <div class="worker-card" style="padding: 10px; margin-bottom: 10px;">
                             <div style="display:flex; justify-content: space-between; align-items:flex-start;">
                                 <div>
                                     <h4 style="margin:0 0 5px 0; font-size:14px;">${record.userName} ${invalidTag}</h4>
+                                    <p style="margin:0 0 2px 0; font-size:12px; color:#666;">Mobile: ${record.phone || 'N/A'} | Aadhar: ${record.adhar || 'N/A'}</p>
                                     <p style="margin:0 0 2px 0; font-size:12px; color:#666;">Date: ${record.date} | Hours: ${record.hours}</p>
                                     <p style="margin:0; font-size:12px; color:#666;">${record.timing}</p>
+                                    ${actionHtml}
                                 </div>
                                 <div style="text-align: right;">
                                     <span style="font-size:12px; font-weight:bold; color:${statusColor};">${record.paymentStatus}</span>
@@ -308,6 +316,23 @@
                 document.getElementById('adoc-list').innerHTML = html;
             } catch (err) {
                 document.getElementById('adoc-list').innerHTML = '<p style="text-align:center;">Error loading data.</p>';
+            }
+        }
+
+        async function approveAdocRequest(userEmail, recordId) {
+            try {
+                const res = await fetch('/v1/company/approve-adoc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyEmail, userEmail, recordId })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    loadAdocWorkers();
+                }
+            } catch(e) {
+                alert('Error approving request');
             }
         }
 

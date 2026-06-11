@@ -471,10 +471,14 @@ app.post('/v1/adoc/scan', async (req, res) => {
 
     // Check if there is an ongoing 'In Progress' adoc session for this company
     const ongoingIdx = user.adocHistory.findIndex(a => a.company === company.companyName && a.paymentStatus === 'In Progress');
+    const pendingIdx = user.adocHistory.findIndex(a => a.company === company.companyName && a.paymentStatus === 'Pending Approval');
+    
     let record;
     let scanType = 'in';
 
-    if (ongoingIdx >= 0) {
+    if (pendingIdx >= 0) {
+      return res.json({ success: false, message: 'You already have a request pending approval for this company.' });
+    } else if (ongoingIdx >= 0) {
       // Check Out
       scanType = 'out';
       user.adocHistory[ongoingIdx].checkOutTime = new Date();
@@ -498,11 +502,11 @@ app.post('/v1/adoc/scan', async (req, res) => {
 
       record = user.adocHistory[ongoingIdx];
     } else {
-      // Check In
+      // Check In (Request Approval)
       record = {
         jobId: company.adocId, company: company.companyName, title: 'Adoc Shift', date: new Date().toLocaleDateString(),
-        checkInTime: new Date(), hours: 0,
-        paymentStatus: 'In Progress', timing: 'In Progress...', help: 'Support active',
+        hours: 0,
+        paymentStatus: 'Pending Approval', timing: 'Waiting for company approval...', help: 'Support active',
         isValid: true
       };
       user.adocHistory.push(record);
@@ -514,9 +518,28 @@ app.post('/v1/adoc/scan', async (req, res) => {
       const msg = record.isValid ? 'Check-Out Successful! Shift completed.' : 'Check-Out Successful! Note: Shift was under 8 hours and is marked invalid for you.';
       res.json({ success: true, message: msg, data: record });
     } else {
-      res.json({ success: true, message: 'Check-In Successful! Work hard.', data: record });
+      res.json({ success: true, message: 'Request Sent! Waiting for company approval to start shift.', data: record });
     }
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.post('/v1/company/approve-adoc', async (req, res) => {
+  const { companyEmail, userEmail, recordId } = req.body;
+  try {
+    const company = await Company.findOne({ email: companyEmail });
+    const user = await User.findOne({ email: userEmail });
+    if (!company || !user) return res.json({ success: false, message: 'Invalid data' });
+
+    const record = user.adocHistory.id(recordId);
+    if (!record || record.paymentStatus !== 'Pending Approval') return res.json({ success: false, message: 'Record not found or already processed' });
+
+    record.paymentStatus = 'In Progress';
+    record.checkInTime = new Date();
+    record.timing = 'In Progress...';
+    await user.save();
+
+    res.json({ success: true, message: 'Adoc shift started for the user!' });
+  } catch(e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
 app.post('/v1/company/adoc-history', async (req, res) => {
@@ -538,7 +561,9 @@ app.post('/v1/company/adoc-history', async (req, res) => {
             hours: h.hours || 0,
             paymentStatus: h.paymentStatus,
             timing: h.timing,
-            isValid: h.isValid
+            isValid: h.isValid,
+            adhar: u.adhar,
+            recordId: h._id
           });
         }
       });
