@@ -247,6 +247,12 @@
                 <span style="font-size: 14px; margin-right: 20px;">light<br>Button</span>
                 <button class="scan-btn">Scan</button>
             </div>
+            <!-- Manual Entry Fallback -->
+            <div style="margin-top: 30px; text-align: center; border-top: 1px solid #ddd; padding-top: 20px;">
+                <p style="font-size: 14px; color: #666; margin-bottom: 10px;">Camera not working?</p>
+                <input type="text" id="manual-adoc-id" class="input" placeholder="Enter Company Adoc ID manually..." style="max-width: 250px; display: inline-block; margin-bottom: 0;">
+                <button class="btn btn-submit" style="padding: 10px 20px; margin-top: 10px; width: 250px;" onclick="submitManualId()">Submit ID</button>
+            </div>
         </div>
 
         <!-- 4. My Job Tab -->
@@ -599,7 +605,7 @@
             }
         }
 
-        // Process real scan result
+        // Process real scan result or manual input
         async function processScan(jobId) {
             if(!jobId) return;
             const email = localStorage.getItem('userEmail');
@@ -616,6 +622,13 @@
                     switchTab('adoc', document.querySelectorAll('.nav-item')[1]);
                 }
             } catch (err) { alert('Scan failed'); }
+        }
+
+        function submitManualId() {
+            const manualId = document.getElementById('manual-adoc-id').value.trim();
+            if(!manualId) return alert('Please enter an Adoc ID');
+            processScan(manualId);
+            document.getElementById('manual-adoc-id').value = '';
         }
 
         async function verifyProfile() {
