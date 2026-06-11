@@ -68,7 +68,8 @@ const userSchema = new mongoose.Schema({
     paymentStatus: String,
     timing: String,
     help: String,
-    isValid: { type: Boolean, default: true }
+    isValid: { type: Boolean, default: true },
+    approvedAt: Date
   }],
   permanentHistory: [{
     jobId: String,
@@ -568,9 +569,16 @@ app.post('/v1/company/adoc-history', async (req, res) => {
     
     const users = await User.find({ "adocHistory.company": company.companyName });
     let history = [];
+    const now = Date.now();
+    const fiveHoursInMs = 5 * 60 * 60 * 1000;
+
     users.forEach(u => {
       u.adocHistory.forEach(h => {
         if (h.company === company.companyName) {
+          if (h.paymentStatus === 'Successful' && h.approvedAt) {
+            const approvedTime = new Date(h.approvedAt).getTime();
+            if (now - approvedTime > fiveHoursInMs) return; // Hide after 5 hours
+          }
           history.push({
             userEmail: u.email,
             userName: u.name,
@@ -606,7 +614,19 @@ app.post('/v1/profile/me', async (req, res) => {
        user = await User.findOne(); // grab any user
     }
     if(user) {
-      res.json({ success: true, data: user });
+      const now = Date.now();
+      const fiveHoursInMs = 5 * 60 * 60 * 1000;
+      
+      const userObj = user.toObject();
+      userObj.adocHistory = userObj.adocHistory.filter(h => {
+        if (h.paymentStatus === 'Successful' && h.approvedAt) {
+          const approvedTime = new Date(h.approvedAt).getTime();
+          if (now - approvedTime > fiveHoursInMs) return false;
+        }
+        return true;
+      });
+
+      res.json({ success: true, data: userObj });
     } else {
       res.json({ success: false, message: 'User not found' });
     }
@@ -667,9 +687,55 @@ app.post('/v1/admin/adoc/approve', async (req, res) => {
     if (!record) return res.json({ success: false, message: 'Record not found' });
     
     record.paymentStatus = 'Successful';
+    record.approvedAt = new Date();
     await user.save();
     res.json({ success: true, message: 'Payment approved successfully!' });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.get('/v1/admin/all-history', async (req, res) => {
+  try {
+    const users = await User.find({});
+    const allHistory = [];
+    
+    users.forEach(u => {
+      // Add Permanent History
+      if (u.permanentHistory) {
+        u.permanentHistory.forEach(h => {
+          allHistory.push({
+            type: 'Permanent',
+            userEmail: u.email,
+            userName: u.name || 'N/A',
+            company: h.company,
+            date: h.date,
+            status: h.status,
+            hours: 'N/A',
+            sortDate: h.date // Might be DD/MM/YYYY, sorting could be complex but frontend can handle it
+          });
+        });
+      }
+      
+      // Add Adoc History
+      if (u.adocHistory) {
+        u.adocHistory.forEach(h => {
+          allHistory.push({
+            type: 'Adoc',
+            userEmail: u.email,
+            userName: u.name || 'N/A',
+            company: h.company,
+            date: h.date,
+            status: h.paymentStatus,
+            hours: h.hours ? h.hours + ' hrs' : '0 hrs',
+            sortDate: h.date
+          });
+        });
+      }
+    });
+
+    res.json({ success: true, data: allHistory });
+  } catch(e) {
+    res.json({ success: false, message: 'DB Error' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

@@ -121,6 +121,12 @@
                     <i class="fa-solid fa-address-book"></i>
                     <span>All Users<br><small>(Database)</small></span>
                 </div>
+
+                <!-- Button 11: All History -->
+                <div class="admin-card" onclick="openAllHistoryModal()">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>All History<br><small>(Adoc & Perm)</small></span>
+                </div>
             </div>
         </div>
     </div>
@@ -250,6 +256,50 @@
             </div>
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeModal('usersModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALL HISTORY MODAL -->
+    <div class="modal" id="allHistoryModal">
+        <div class="modal-content" style="max-width: 900px; width: 95%;">
+            <h3>All Attendance History</h3>
+            
+            <div style="background: #f9f9f9; padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px;">
+                <h4 style="margin-top: 0; margin-bottom: 10px;">Filter by Date Range</h4>
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; font-weight: bold;">From Date:</label>
+                        <input type="date" id="history-start-date" class="input" style="margin-bottom: 0;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; font-weight: bold;">To Date:</label>
+                        <input type="date" id="history-end-date" class="input" style="margin-bottom: 0;">
+                    </div>
+                    <button class="btn btn-submit" style="height: 40px;" onclick="loadAllHistory()">Filter</button>
+                </div>
+            </div>
+
+            <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
+                            <th style="padding: 8px; border: 1px solid #ccc;">Type</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Name</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Email</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Company</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Date</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Hours</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-history-list">
+                        <!-- Data will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeModal('allHistoryModal')">Close</button>
             </div>
         </div>
     </div>
@@ -675,6 +725,80 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        // --- All History Logics ---
+        function openAllHistoryModal() {
+            openModal('allHistoryModal');
+            // Default load without filters
+            document.getElementById('history-start-date').value = '';
+            document.getElementById('history-end-date').value = '';
+            loadAllHistory();
+        }
+
+        function parseGBDate(str) {
+            if(!str) return new Date(0);
+            const parts = str.split('/');
+            if(parts.length !== 3) return new Date(0);
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+
+        async function loadAllHistory() {
+            document.getElementById('all-history-list').innerHTML = '<tr><td colspan="7" style="padding:10px; text-align:center;">Loading...</td></tr>';
+            
+            const startStr = document.getElementById('history-start-date').value;
+            const endStr = document.getElementById('history-end-date').value;
+            let startDate = null, endDate = null;
+
+            if(startStr && endStr) {
+                startDate = new Date(startStr);
+                startDate.setHours(0,0,0,0);
+                endDate = new Date(endStr);
+                endDate.setHours(23,59,59,999);
+            }
+
+            try {
+                const res = await fetch('/v1/admin/all-history');
+                const data = await res.json();
+                
+                if (data.data.length === 0) {
+                    document.getElementById('all-history-list').innerHTML = '<tr><td colspan="7" style="padding:10px; text-align:center;">No history found.</td></tr>';
+                    return;
+                }
+
+                let filteredData = data.data;
+
+                if (startDate && endDate) {
+                    filteredData = filteredData.filter(h => {
+                        const hDate = parseGBDate(h.sortDate);
+                        return hDate >= startDate && hDate <= endDate;
+                    });
+                }
+
+                if (filteredData.length === 0) {
+                    document.getElementById('all-history-list').innerHTML = '<tr><td colspan="7" style="padding:10px; text-align:center;">No history found for this date range.</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                filteredData.forEach(h => {
+                    const typeColor = h.type === 'Permanent' ? 'blue' : 'purple';
+                    html += `
+                        <tr style="border-bottom: 1px solid #ccc;">
+                            <td style="padding: 8px; border: 1px solid #ccc; color: ${typeColor}; font-weight: bold;">${h.type}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${h.userName}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${h.userEmail}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${h.company}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${h.date}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${h.hours}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${h.status}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('all-history-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('all-history-list').innerHTML = '<tr><td colspan="7" style="padding:10px; text-align:center;">Error loading data.</td></tr>';
+            }
         }
     </script>
 </body>
