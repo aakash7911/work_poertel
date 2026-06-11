@@ -293,7 +293,12 @@
                     
                     let actionHtml = '';
                     if (record.paymentStatus === 'Pending Approval') {
-                        actionHtml = `<div style="margin-top:10px;"><button class="btn btn-submit" style="padding:6px 12px; font-size:12px; background:#000;" onclick="approveAdocRequest('${record.userEmail}', '${record.recordId}')">Accept Request</button></div>`;
+                        actionHtml = `
+                            <div style="margin-top:10px; display:flex; gap:10px;">
+                                <button class="btn btn-submit" style="padding:6px 12px; font-size:12px; background:#000;" onclick="approveAdocRequest('${record.userEmail}', '${record.recordId}')">Accept</button>
+                                <button class="btn btn-cancel" style="padding:6px 12px; font-size:12px; background:#dc3545; color:#fff;" onclick="rejectAdocRequest('${record.userEmail}', '${record.recordId}')">Reject</button>
+                            </div>
+                        `;
                     }
 
                     html += `
@@ -333,6 +338,24 @@
                 }
             } catch(e) {
                 alert('Error approving request');
+            }
+        }
+
+        async function rejectAdocRequest(userEmail, recordId) {
+            if(!confirm("Are you sure you want to reject this request?")) return;
+            try {
+                const res = await fetch('/v1/company/reject-adoc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyEmail, userEmail, recordId })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    loadAdocWorkers();
+                }
+            } catch(e) {
+                alert('Error rejecting request');
             }
         }
 

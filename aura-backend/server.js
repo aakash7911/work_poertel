@@ -542,6 +542,24 @@ app.post('/v1/company/approve-adoc', async (req, res) => {
   } catch(e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
+app.post('/v1/company/reject-adoc', async (req, res) => {
+  const { companyEmail, userEmail, recordId } = req.body;
+  try {
+    const company = await Company.findOne({ email: companyEmail });
+    const user = await User.findOne({ email: userEmail });
+    if (!company || !user) return res.json({ success: false, message: 'Invalid data' });
+
+    const record = user.adocHistory.id(recordId);
+    if (!record || record.paymentStatus !== 'Pending Approval') return res.json({ success: false, message: 'Record not found or already processed' });
+
+    // Remove the pending record entirely so the user can try again if needed
+    user.adocHistory.pull(recordId);
+    await user.save();
+
+    res.json({ success: true, message: 'Adoc request rejected.' });
+  } catch(e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
 app.post('/v1/company/adoc-history', async (req, res) => {
   const { companyEmail } = req.body;
   try {
