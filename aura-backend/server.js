@@ -28,6 +28,8 @@ const CUSTOM_SALTS = [
 function encryptData(text) {
   if (!text) return text;
   text = text.toString();
+  // Safe fallback if env vars are missing
+  if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) return text; 
   try {
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
@@ -65,6 +67,8 @@ function decryptData(encodedText) {
   if (!encodedText || typeof encodedText !== 'string' || !encodedText.startsWith('ENC:')) {
     return encodedText;
   }
+  // Safe fallback if env vars are missing
+  if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) return encodedText;
   try {
     // Remove the ENC: prefix and strip out all custom salts wrapped in |
     let stripped = encodedText.substring(4).replace(/\|.*?\|/g, '');
