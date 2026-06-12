@@ -181,7 +181,8 @@ const jobSchema = new mongoose.Schema({
   description: String,
   posterUrl: String,
   companyName: String,
-  jobType: String
+  jobType: String,
+  shiftType: String
 });
 const Job = mongoose.model('Job', jobSchema);
 
@@ -211,6 +212,8 @@ const companySchema = new mongoose.Schema({
   passwordHash: String,
   salt: String,
   adocId: { type: String, unique: true },
+  shiftPattern: String,
+  nightAllowance: { type: Number, default: 0 },
   baseSalary: { type: Number, default: 0 },
   sundayRate: { type: Number, default: 0 },
   otRate: { type: Number, default: 0 },
@@ -360,7 +363,7 @@ app.post('/v1/upload', upload.single('image'), (req, res) => {
 // --- ADMIN ENDPOINTS ---
 app.post('/v1/admin/add-company', async (req, res) => {
   const { 
-    name, location, email, password, 
+    name, location, email, password, shiftPattern, nightAllowance,
     baseSalary, sundayRate, otRate, pfDeduct, maintenanceFee, busFee, foodFee,
     teaBreakTime, teaBreakCount, teaBreakDeductType,
     lunchBreakTime, lunchBreakDeductType
@@ -377,8 +380,12 @@ app.post('/v1/admin/add-company', async (req, res) => {
     const passwordHash = bcrypt.hashSync(password, salt);
     const adocId = "COMP-" + Math.floor(1000 + Math.random() * 9000);
 
+    const encryptedShiftPattern = shiftPattern ? encryptData(shiftPattern) : encryptData('All Day');
+
     const newCompany = new Company({ 
       companyName: name, location, email, passwordHash, salt, adocId,
+      shiftPattern: encryptedShiftPattern,
+      nightAllowance: Number(nightAllowance) || 0,
       baseSalary: Number(baseSalary) || 0,
       sundayRate: Number(sundayRate) || 0,
       otRate: Number(otRate) || 0,
@@ -401,7 +408,12 @@ app.post('/v1/admin/add-company', async (req, res) => {
 app.get('/v1/admin/companies', async (req, res) => {
   try {
     const companies = await Company.find({}, '-passwordHash -salt');
-    res.json({ success: true, data: companies });
+    const decryptedCompanies = companies.map(c => {
+      const cObj = c.toObject();
+      if(cObj.shiftPattern) cObj.shiftPattern = decryptData(cObj.shiftPattern);
+      return cObj;
+    });
+    res.json({ success: true, data: decryptedCompanies });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
@@ -538,7 +550,7 @@ app.post('/v1/company/mark-attendance', async (req, res) => {
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 app.post('/v1/jobs/admin', async (req, res) => {
-  const { title, description, posterUrl, companyName, jobType } = req.body;
+  const { title, description, posterUrl, companyName, jobType, shiftType } = req.body;
   if (!title || !companyName || !jobType) return res.json({ success: false, message: 'Title, Company Name, and Job Type are required' });
   
   try {
@@ -547,7 +559,7 @@ app.post('/v1/jobs/admin', async (req, res) => {
 
     const newJob = new Job({
       id: Date.now().toString(),
-      title, description: description || '', posterUrl: posterUrl || '', companyName, jobType
+      title, description: description || '', posterUrl: posterUrl || '', companyName, jobType, shiftType: shiftType || 'Day'
     });
     await newJob.save();
     res.json({ success: true, message: 'Job posted successfully', data: newJob });

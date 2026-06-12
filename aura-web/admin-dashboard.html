@@ -165,6 +165,12 @@
                     <input type="text" id="c-location" class="input" placeholder="Location" style="margin-bottom:0;">
                     <input type="email" id="c-email" class="input" placeholder="Login Email" style="margin-bottom:0;">
                     <input type="password" id="c-password" class="input" placeholder="Login Password" style="margin-bottom:0;">
+                    <select id="c-shiftPattern" class="input" style="margin-bottom:0;">
+                        <option value="All Day">All Day Shift</option>
+                        <option value="All Night">All Night Shift</option>
+                        <option value="Rotating">Rotating (Day/Night)</option>
+                    </select>
+                    <input type="number" id="c-nightAllowance" class="input" placeholder="Night Allowance (₹) per night" style="margin-bottom:0;">
                     <input type="number" id="c-baseSalary" class="input" placeholder="26 Days Salary Base (₹)" style="margin-bottom:0;">
                     <input type="number" id="c-sundayRate" class="input" placeholder="Sunday Rate (₹) if not off" style="margin-bottom:0;">
                     <input type="number" id="c-otRate" class="input" placeholder="OT Rate (₹ per hour)" style="margin-bottom:0;">
@@ -205,6 +211,11 @@
             <select id="j-type" class="input">
                 <option value="permanent">Permanent Job (Full Time)</option>
                 <option value="adoc">Adoc Job (1 Day Scan)</option>
+            </select>
+            <select id="j-shiftType" class="input">
+                <option value="Day">Day Shift</option>
+                <option value="Night">Night Shift</option>
+                <option value="Rotating">Rotating (Day/Night)</option>
             </select>
             <select id="j-company" class="input">
                 <option value="">Select a Registered Company</option>
@@ -509,6 +520,8 @@
             const location = document.getElementById('c-location').value;
             const email = document.getElementById('c-email').value;
             const password = document.getElementById('c-password').value;
+            const shiftPattern = document.getElementById('c-shiftPattern').value;
+            const nightAllowance = document.getElementById('c-nightAllowance').value;
             
             const baseSalary = document.getElementById('c-baseSalary').value;
             const sundayRate = document.getElementById('c-sundayRate').value;
@@ -530,7 +543,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        name, location, email, password,
+                        name, location, email, password, shiftPattern, nightAllowance,
                         baseSalary, sundayRate, otRate, pfDeduct, maintenanceFee, busFee, foodFee,
                         teaBreakTime, teaBreakCount, teaBreakDeductType,
                         lunchBreakTime, lunchBreakDeductType
@@ -572,6 +585,7 @@
             const description = document.getElementById('j-desc').value;
             const companyName = document.getElementById('j-company').value;
             const jobType = document.getElementById('j-type').value;
+            const shiftType = document.getElementById('j-shiftType').value;
             const imageFile = document.getElementById('j-image').files[0];
 
             if(!title || !companyName) return alert('Title and Company Name are required!');
@@ -600,7 +614,7 @@
                 const res = await fetch('/v1/jobs/admin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, description, posterUrl, companyName, jobType })
+                    body: JSON.stringify({ title, description, posterUrl, companyName, jobType, shiftType })
                 });
                 const data = await res.json();
                 alert(data.message);
@@ -1204,8 +1218,10 @@
             }
         }
 
-        function calcUserPayroll(userRecord, company) {
+        function calcUserPayroll(userRecord, company, cycleShift) {
             let totalWorkedHrs = 0;
+            let presentDaysCount = 0;
+            let sundayWorkedCount = 0;
             let sundayWorkedCount = 0;
             let totalTeaDeduct = 0;
             let totalLunchDeduct = 0;
@@ -1213,6 +1229,7 @@
             userRecord.attendance.forEach(a => {
                 if(a.isPresent) {
                     totalWorkedHrs += a.hours;
+                    presentDaysCount++;
                     if(a.isSunday) sundayWorkedCount++;
                     
                     if(company.teaBreakDeductType !== 'none') {
@@ -1235,11 +1252,18 @@
             let otPay = company.otRate * finalOtHrs;
             let sundayPay = company.sundayRate * sundayWorkedCount;
             
+            // Night Allowance Calculation
+            let nightPay = 0;
+            if (cycleShift === 'Night') {
+                nightPay = presentDaysCount * (company.nightAllowance || 0);
+            }
+            
             let deductions = company.pfDeduct + company.maintenanceFee + company.busFee + company.foodFee;
-            let finalSalary = normalPay + otPay + sundayPay - deductions;
+            let finalSalary = normalPay + otPay + sundayPay + nightPay - deductions;
 
             return {
                 totalHrs: totalWorkedHrs,
+                presentDays: presentDaysCount,
                 teaDeductHrs: totalTeaDeduct,
                 lunchDeductHrs: totalLunchDeduct,
                 finalHrs,
@@ -1248,6 +1272,7 @@
                 normalPay: isNaN(normalPay) ? 0 : normalPay,
                 otPay: isNaN(otPay) ? 0 : otPay,
                 sundayPay: isNaN(sundayPay) ? 0 : sundayPay,
+                nightPay: isNaN(nightPay) ? 0 : nightPay,
                 deductions: isNaN(deductions) ? 0 : deductions,
                 finalSalary: isNaN(finalSalary) ? 0 : finalSalary
             };
@@ -1275,16 +1300,26 @@
             document.getElementById('p-users-list').innerHTML = html;
         }
 
+        function getCycleShift(company) {
+            if (company.shiftPattern === 'All Night') return 'Night';
+            if (company.shiftPattern === 'Rotating') {
+                return confirm(`Company '${company.companyName}' ki shift Rotating hai.\nKya is payroll cycle me inki shift DAY thi?\n\n- Yes ke liye "OK" dabayein (Day)\n- No ke liye "Cancel" dabayein (Night Allowance judega)`) ? 'Day' : 'Night';
+            }
+            return 'Day';
+        }
+
         function downloadSingleExcel(index) {
             if(!globalPayrollData) return;
             const r = globalPayrollData.data[index];
             const c = globalPayrollData.company;
-            const calc = calcUserPayroll(r, c);
+            
+            const cycleShift = getCycleShift(c);
+            const calc = calcUserPayroll(r, c, cycleShift);
 
             const wb = XLSX.utils.book_new();
 
             const headerData = [
-                ["COMPANY NAME", c.companyName],
+                ["COMPANY NAME", c.companyName, "Shift Cycle", cycleShift],
                 ["Employee Name", r.user.name, "Aadhar", r.user.adhar],
                 ["Phone", r.user.phone, "PAN", r.user.pan],
                 ["PF Number", r.user.pfNumber, "Cycle Date", `${document.getElementById('p-start-date').value} to ${document.getElementById('p-end-date').value}`],
@@ -1311,6 +1346,7 @@
             headerData.push(["Normal Pay", calc.normalPay.toFixed(2)]);
             headerData.push(["OT Pay", calc.otPay.toFixed(2)]);
             headerData.push(["Sunday Extra Pay", calc.sundayPay.toFixed(2)]);
+            headerData.push(["Night Shift Allowance", calc.nightPay.toFixed(2)]);
             headerData.push(["Fixed Deductions (PF/Bus/Food/Maint)", calc.deductions.toFixed(2)]);
             headerData.push(["FINAL NET SALARY", "Rs. " + calc.finalSalary.toFixed(2)]);
 
@@ -1324,16 +1360,18 @@
             if(!data) return;
             const c = data.company;
 
+            const cycleShift = getCycleShift(c);
+
             const rows = [];
-            rows.push(["Employee Name", "Aadhar", "PAN", "PF Num", "Total Hrs", "Final Hrs", "Normal Pay", "OT Pay", "Sunday Pay", "Deductions", "Net Salary"]);
+            rows.push(["Employee Name", "Aadhar", "PAN", "PF Num", "Total Hrs", "Final Hrs", "Normal Pay", "OT Pay", "Sunday Pay", "Night Allowance", "Deductions", "Net Salary"]);
 
             data.data.forEach(r => {
-                const calc = calcUserPayroll(r, c);
+                const calc = calcUserPayroll(r, c, cycleShift);
                 rows.push([
                     r.user.name, r.user.adhar, r.user.pan, r.user.pfNumber,
                     calc.totalHrs.toFixed(2), calc.finalHrs.toFixed(2),
                     calc.normalPay.toFixed(2), calc.otPay.toFixed(2),
-                    calc.sundayPay.toFixed(2), calc.deductions.toFixed(2),
+                    calc.sundayPay.toFixed(2), calc.nightPay.toFixed(2), calc.deductions.toFixed(2),
                     calc.finalSalary.toFixed(2)
                 ]);
             });
