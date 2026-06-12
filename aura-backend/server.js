@@ -337,6 +337,24 @@ app.delete('/v1/admin/delete-company/:id', async (req, res) => {
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
+app.get('/v1/admin/fix-orphan-users', async (req, res) => {
+  try {
+    const users = await User.find({ permanentCompany: { $ne: null } });
+    let fixedCount = 0;
+
+    for (let u of users) {
+      const comp = await Company.findOne({ companyName: u.permanentCompany });
+      if (!comp) {
+        u.permanentCompany = null;
+        u.joinStatus = null;
+        await u.save();
+        fixedCount++;
+      }
+    }
+    res.json({ success: true, message: `Cleanup complete. Fixed ${fixedCount} users who were stuck in deleted companies.` });
+  } catch (e) { res.json({ success: false, message: e.message }); }
+});
+
 app.post('/v1/admin/permanent-employees', async (req, res) => {
   const { companyName } = req.body;
   try {
