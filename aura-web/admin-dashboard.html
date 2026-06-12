@@ -1225,7 +1225,7 @@
 
         async function testDatabaseSecurity() {
         try {
-            const res = await fetch(`${API_BASE}/v1/admin/raw-db-view`);
+            const res = await fetch(`/v1/admin/raw-db-view`);
             const data = await res.json();
             if(data.success) {
                 const info = `
