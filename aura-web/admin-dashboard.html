@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Aura</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             margin: 0; padding: 0; font-family: 'Inter', sans-serif;
@@ -127,6 +129,18 @@
                     <i class="fa-solid fa-clock-rotate-left"></i>
                     <span>All History<br><small>(Adoc & Perm)</small></span>
                 </div>
+
+                <!-- Button 12: Daily Attendance -->
+                <div class="admin-card" onclick="openDailyAttendanceModal()">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span>Daily Attendance<br><small>(Permanent)</small></span>
+                </div>
+
+                <!-- Button 13: Payroll & Excel -->
+                <div class="admin-card" onclick="openPayrollModal()">
+                    <i class="fa-solid fa-file-excel"></i>
+                    <span>Payroll & Excel<br><small>(Permanent)</small></span>
+                </div>
             </div>
         </div>
     </div>
@@ -145,6 +159,26 @@
                     <input type="text" id="c-location" class="input" placeholder="Location" style="margin-bottom:0;">
                     <input type="email" id="c-email" class="input" placeholder="Login Email" style="margin-bottom:0;">
                     <input type="password" id="c-password" class="input" placeholder="Login Password" style="margin-bottom:0;">
+                    <input type="number" id="c-baseSalary" class="input" placeholder="26 Days Salary Base (₹)" style="margin-bottom:0;">
+                    <input type="number" id="c-sundayRate" class="input" placeholder="Sunday Rate (₹) if not off" style="margin-bottom:0;">
+                    <input type="number" id="c-otRate" class="input" placeholder="OT Rate (₹ per hour)" style="margin-bottom:0;">
+                    <input type="number" id="c-pfDeduct" class="input" placeholder="PF Deduction (₹)" style="margin-bottom:0;">
+                    <input type="number" id="c-maintenanceFee" class="input" placeholder="Maintenance Fee (₹)" style="margin-bottom:0;">
+                    <input type="number" id="c-busFee" class="input" placeholder="Bus Fee (₹)" style="margin-bottom:0;">
+                    <input type="number" id="c-foodFee" class="input" placeholder="Food Fee (₹)" style="margin-bottom:0;">
+                    <input type="number" id="c-teaBreakTime" class="input" placeholder="Tea Break Time (mins)" style="margin-bottom:0;">
+                    <input type="number" id="c-teaBreakCount" class="input" placeholder="Tea Break Count (per day)" style="margin-bottom:0;">
+                    <select id="c-teaBreakDeductType" class="input" style="margin-bottom:0;">
+                        <option value="none">Tea Break Deduction: None</option>
+                        <option value="normal">Deduct from Normal Hours</option>
+                        <option value="ot">Deduct from OT Hours</option>
+                    </select>
+                    <input type="number" id="c-lunchBreakTime" class="input" placeholder="Lunch Break Time (mins)" style="margin-bottom:0;">
+                    <select id="c-lunchBreakDeductType" class="input" style="margin-bottom:0;">
+                        <option value="none">Lunch Break Deduction: None</option>
+                        <option value="normal">Deduct from Normal Hours</option>
+                        <option value="ot">Deduct from OT Hours</option>
+                    </select>
                 </div>
                 <button class="btn btn-submit" style="width: 100%; margin-top: 10px;" onclick="addCompany()">Register Company</button>
             </div>
@@ -304,6 +338,92 @@
         </div>
     </div>
 
+    <!-- DAILY ATTENDANCE MODAL -->
+    <div class="modal" id="dailyAttendanceModal">
+        <div class="modal-content" style="max-width: 900px; width: 95%;">
+            <h3>Permanent Daily Attendance</h3>
+            
+            <div style="background: #eef7ff; padding: 15px; border: 1px solid #b8daff; border-radius: 8px; margin-bottom: 15px;">
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; font-weight: bold;">Select Company:</label>
+                        <select id="da-company-select" class="input" style="margin-bottom: 0;"></select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; font-weight: bold;">Date:</label>
+                        <input type="date" id="da-date" class="input" style="margin-bottom: 0;">
+                    </div>
+                    <button class="btn btn-submit" style="height: 40px; background: #004085;" onclick="loadDailyAttendanceUsers()">Load Users</button>
+                </div>
+            </div>
+
+            <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
+                            <th style="padding: 8px; border: 1px solid #ccc;">Name (Email)</th>
+                            <th style="padding: 8px; border: 1px solid #ccc; width: 120px;">Hours</th>
+                            <th style="padding: 8px; border: 1px solid #ccc; width: 150px;">Present?</th>
+                        </tr>
+                    </thead>
+                    <tbody id="da-users-list">
+                        <!-- Users will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="btn-row" style="justify-content: space-between;">
+                <button class="btn btn-cancel" onclick="closeModal('dailyAttendanceModal')">Close</button>
+                <button class="btn btn-submit" onclick="saveDailyAttendance()">Save Attendance</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAYROLL & EXCEL MODAL -->
+    <div class="modal" id="payrollModal">
+        <div class="modal-content" style="max-width: 900px; width: 95%;">
+            <h3>Permanent Payroll & Excel Export</h3>
+            
+            <div style="background: #fff3cd; padding: 15px; border: 1px solid #ffeeba; border-radius: 8px; margin-bottom: 15px;">
+                <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="font-size: 12px; font-weight: bold;">Select Company:</label>
+                        <select id="p-company-select" class="input" style="margin-bottom: 0;"></select>
+                    </div>
+                    <div style="flex: 1; min-width: 140px;">
+                        <label style="font-size: 12px; font-weight: bold;">Cycle Start Date:</label>
+                        <input type="date" id="p-start-date" class="input" style="margin-bottom: 0;">
+                    </div>
+                    <div style="flex: 1; min-width: 140px;">
+                        <label style="font-size: 12px; font-weight: bold;">Cycle End Date:</label>
+                        <input type="date" id="p-end-date" class="input" style="margin-bottom: 0;">
+                    </div>
+                </div>
+                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                    <button class="btn btn-submit" style="flex: 1; background: #28a745;" onclick="downloadBulkExcel()">Download Bulk Company Excel</button>
+                    <button class="btn btn-submit" style="flex: 1; background: #17a2b8;" onclick="loadPayrollUsers()">View Users (Single Download)</button>
+                </div>
+            </div>
+
+            <div style="max-height: 350px; overflow-y: auto; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
+                            <th style="padding: 8px; border: 1px solid #ccc;">Name</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Email</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="p-users-list">
+                        <tr><td colspan="3" style="text-align:center; padding:10px;">Click 'View Users' to load</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="btn-row" style="justify-content: flex-end;">
+                <button class="btn btn-cancel" onclick="closeModal('payrollModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function logout() {
             window.location.href = '/login.html';
@@ -360,6 +480,19 @@
             const location = document.getElementById('c-location').value;
             const email = document.getElementById('c-email').value;
             const password = document.getElementById('c-password').value;
+            
+            const baseSalary = document.getElementById('c-baseSalary').value;
+            const sundayRate = document.getElementById('c-sundayRate').value;
+            const otRate = document.getElementById('c-otRate').value;
+            const pfDeduct = document.getElementById('c-pfDeduct').value;
+            const maintenanceFee = document.getElementById('c-maintenanceFee').value;
+            const busFee = document.getElementById('c-busFee').value;
+            const foodFee = document.getElementById('c-foodFee').value;
+            const teaBreakTime = document.getElementById('c-teaBreakTime').value;
+            const teaBreakCount = document.getElementById('c-teaBreakCount').value;
+            const teaBreakDeductType = document.getElementById('c-teaBreakDeductType').value;
+            const lunchBreakTime = document.getElementById('c-lunchBreakTime').value;
+            const lunchBreakDeductType = document.getElementById('c-lunchBreakDeductType').value;
 
             if(!name || !email || !password) return alert('Name, Email and Password are required');
 
@@ -367,7 +500,12 @@
                 const res = await fetch('/v1/admin/add-company', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, location, email, password })
+                    body: JSON.stringify({ 
+                        name, location, email, password,
+                        baseSalary, sundayRate, otRate, pfDeduct, maintenanceFee, busFee, foodFee,
+                        teaBreakTime, teaBreakCount, teaBreakDeductType,
+                        lunchBreakTime, lunchBreakDeductType
+                    })
                 });
                 const data = await res.json();
                 alert(data.message);
@@ -800,6 +938,285 @@
                 document.getElementById('all-history-list').innerHTML = '<tr><td colspan="7" style="padding:10px; text-align:center;">Error loading data.</td></tr>';
             }
         }
+
+        // --- Daily Attendance Logics ---
+        async function openDailyAttendanceModal() {
+            openModal('dailyAttendanceModal');
+            document.getElementById('da-date').valueAsDate = new Date();
+            document.getElementById('da-company-select').innerHTML = '<option value="">Loading...</option>';
+            document.getElementById('da-users-list').innerHTML = '<tr><td colspan="3" style="text-align:center; padding:10px;">Select a company and load users</td></tr>';
+            
+            try {
+                const res = await fetch('/v1/admin/companies');
+                const data = await res.json();
+                if(data.success) {
+                    let html = '<option value="">-- Select Company --</option>';
+                    data.data.forEach(c => {
+                        html += `<option value="${c.companyName}">${c.companyName}</option>`;
+                    });
+                    document.getElementById('da-company-select').innerHTML = html;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function loadDailyAttendanceUsers() {
+            const companyName = document.getElementById('da-company-select').value;
+            if(!companyName) return alert("Select a company first!");
+
+            document.getElementById('da-users-list').innerHTML = '<tr><td colspan="3" style="text-align:center; padding:10px;">Loading users...</td></tr>';
+            try {
+                const res = await fetch('/v1/admin/permanent-employees', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ companyName })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    if(data.data.length === 0) {
+                        document.getElementById('da-users-list').innerHTML = '<tr><td colspan="3" style="text-align:center; padding:10px;">No permanent users found.</td></tr>';
+                        return;
+                    }
+                    let html = '';
+                    data.data.forEach((u, index) => {
+                        html += `
+                            <tr style="border-bottom: 1px solid #ccc;" class="da-row" data-email="${u.email}">
+                                <td style="padding: 8px; border: 1px solid #ccc;">${u.name}<br><small style="color:#666;">${u.email}</small></td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">
+                                    <input type="number" class="da-hours" value="8" style="width:100%; box-sizing:border-box; padding:5px;">
+                                </td>
+                                <td style="padding: 8px; border: 1px solid #ccc;">
+                                    <select class="da-present" style="width:100%; padding:5px;">
+                                        <option value="yes">Yes (Present)</option>
+                                        <option value="no">No (Absent)</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    document.getElementById('da-users-list').innerHTML = html;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function saveDailyAttendance() {
+            const companyName = document.getElementById('da-company-select').value;
+            const dateStr = document.getElementById('da-date').value;
+            if(!companyName || !dateStr) return alert("Select company and date");
+
+            const rows = document.querySelectorAll('.da-row');
+            if(rows.length === 0) return alert("No users to save");
+
+            let attendanceData = [];
+            const parts = dateStr.split('-');
+            const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
+
+            rows.forEach(row => {
+                const email = row.getAttribute('data-email');
+                const hours = parseFloat(row.querySelector('.da-hours').value) || 0;
+                const isPresent = row.querySelector('.da-present').value === 'yes';
+                attendanceData.push({ userEmail: email, hours, isPresent });
+            });
+
+            try {
+                const res = await fetch('/v1/admin/submit-daily-attendance', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ companyName, date: formattedDate, dateObj: dateStr, attendanceData })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    closeModal('dailyAttendanceModal');
+                }
+            } catch(e) { alert('Error saving attendance'); }
+        }
+
+        // --- Payroll & Excel Logics ---
+        let globalPayrollData = null;
+
+        async function openPayrollModal() {
+            openModal('payrollModal');
+            document.getElementById('p-users-list').innerHTML = '<tr><td colspan="3" style="text-align:center; padding:10px;">Click View Users to load</td></tr>';
+            const today = new Date();
+            const start = new Date(today.getFullYear(), today.getMonth() - 1, 7);
+            const end = new Date(today.getFullYear(), today.getMonth(), 7);
+            document.getElementById('p-start-date').valueAsDate = start;
+            document.getElementById('p-end-date').valueAsDate = end;
+
+            try {
+                const res = await fetch('/v1/admin/companies');
+                const data = await res.json();
+                if(data.success) {
+                    let html = '<option value="">-- Select Company --</option>';
+                    data.data.forEach(c => {
+                        html += `<option value="${c.companyName}">${c.companyName}</option>`;
+                    });
+                    document.getElementById('p-company-select').innerHTML = html;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function fetchPayrollData() {
+            const companyName = document.getElementById('p-company-select').value;
+            const startDate = document.getElementById('p-start-date').value;
+            const endDate = document.getElementById('p-end-date').value;
+            if(!companyName || !startDate || !endDate) {
+                alert("Please select company and dates");
+                return null;
+            }
+            try {
+                const res = await fetch('/v1/admin/generate-payroll', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ companyName, startDate, endDate })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    globalPayrollData = data;
+                    return data;
+                } else {
+                    alert(data.message); return null;
+                }
+            } catch(e) { alert("Error fetching data"); return null; }
+        }
+
+        function calcUserPayroll(userRecord, company) {
+            let totalWorkedHrs = 0;
+            let sundayWorkedCount = 0;
+            let totalTeaDeduct = 0;
+            let totalLunchDeduct = 0;
+            
+            userRecord.attendance.forEach(a => {
+                if(a.isPresent) {
+                    totalWorkedHrs += a.hours;
+                    if(a.isSunday) sundayWorkedCount++;
+                    
+                    if(company.teaBreakDeductType !== 'none') {
+                        totalTeaDeduct += (company.teaBreakTime * company.teaBreakCount) / 60;
+                    }
+                    if(company.lunchBreakDeductType !== 'none') {
+                        totalLunchDeduct += company.lunchBreakTime / 60;
+                    }
+                }
+            });
+
+            const normalMonthHrs = 26 * 8; 
+            let finalHrs = totalWorkedHrs - totalTeaDeduct - totalLunchDeduct;
+            if(finalHrs < 0) finalHrs = 0;
+
+            let finalNormalHrs = Math.min(finalHrs, normalMonthHrs);
+            let finalOtHrs = Math.max(0, finalHrs - normalMonthHrs);
+
+            let normalPay = (company.baseSalary / normalMonthHrs) * finalNormalHrs;
+            let otPay = company.otRate * finalOtHrs;
+            let sundayPay = company.sundayRate * sundayWorkedCount;
+            
+            let deductions = company.pfDeduct + company.maintenanceFee + company.busFee + company.foodFee;
+            let finalSalary = normalPay + otPay + sundayPay - deductions;
+
+            return {
+                totalHrs: totalWorkedHrs,
+                teaDeductHrs: totalTeaDeduct,
+                lunchDeductHrs: totalLunchDeduct,
+                finalHrs,
+                normalHrs: finalNormalHrs,
+                otHrs: finalOtHrs,
+                normalPay: isNaN(normalPay) ? 0 : normalPay,
+                otPay: isNaN(otPay) ? 0 : otPay,
+                sundayPay: isNaN(sundayPay) ? 0 : sundayPay,
+                deductions: isNaN(deductions) ? 0 : deductions,
+                finalSalary: isNaN(finalSalary) ? 0 : finalSalary
+            };
+        }
+
+        async function loadPayrollUsers() {
+            document.getElementById('p-users-list').innerHTML = '<tr><td colspan="3" style="text-align:center; padding:10px;">Loading...</td></tr>';
+            const data = await fetchPayrollData();
+            if(!data || data.data.length === 0) {
+                document.getElementById('p-users-list').innerHTML = '<tr><td colspan="3" style="text-align:center; padding:10px;">No users found for this cycle.</td></tr>';
+                return;
+            }
+            let html = '';
+            data.data.forEach((r, idx) => {
+                html += `
+                    <tr style="border-bottom: 1px solid #ccc;">
+                        <td style="padding: 8px; border: 1px solid #ccc;">${r.user.name}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc;">${r.user.email}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; text-align:center;">
+                            <button class="btn btn-submit" style="padding:4px 8px; font-size:12px; background:#17a2b8;" onclick="downloadSingleExcel(${idx})">Download Excel</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('p-users-list').innerHTML = html;
+        }
+
+        function downloadSingleExcel(index) {
+            if(!globalPayrollData) return;
+            const r = globalPayrollData.data[index];
+            const c = globalPayrollData.company;
+            const calc = calcUserPayroll(r, c);
+
+            const wb = XLSX.utils.book_new();
+
+            const headerData = [
+                ["COMPANY NAME", c.companyName],
+                ["Employee Name", r.user.name, "Aadhar", r.user.adhar],
+                ["Phone", r.user.phone, "PAN", r.user.pan],
+                ["PF Number", r.user.pfNumber, "Cycle Date", `${document.getElementById('p-start-date').value} to ${document.getElementById('p-end-date').value}`],
+                []
+            ];
+
+            headerData.push(["Date", "Status", "Hours Worked"]);
+            r.attendance.forEach(a => {
+                const status = a.isPresent ? "P" : "A";
+                const sundayStr = a.isSunday ? " (SUNDAY)" : "";
+                headerData.push([a.date + sundayStr, status, a.hours]);
+            });
+
+            headerData.push([]);
+            headerData.push(["CALCULATIONS", ""]);
+            headerData.push(["Total Logged Hours", calc.totalHrs.toFixed(2)]);
+            headerData.push(["Tea Break Deductions (Hrs)", calc.teaDeductHrs.toFixed(2)]);
+            headerData.push(["Lunch Break Deductions (Hrs)", calc.lunchDeductHrs.toFixed(2)]);
+            headerData.push(["Final Paid Hours", calc.finalHrs.toFixed(2)]);
+            headerData.push(["Normal Hours", calc.normalHrs.toFixed(2)]);
+            headerData.push(["OT Hours", calc.otHrs.toFixed(2)]);
+            headerData.push([]);
+            headerData.push(["PAYOUTS & DEDUCTIONS", ""]);
+            headerData.push(["Normal Pay", calc.normalPay.toFixed(2)]);
+            headerData.push(["OT Pay", calc.otPay.toFixed(2)]);
+            headerData.push(["Sunday Extra Pay", calc.sundayPay.toFixed(2)]);
+            headerData.push(["Fixed Deductions (PF/Bus/Food/Maint)", calc.deductions.toFixed(2)]);
+            headerData.push(["FINAL NET SALARY", "Rs. " + calc.finalSalary.toFixed(2)]);
+
+            const ws = XLSX.utils.aoa_to_sheet(headerData);
+            XLSX.utils.book_append_sheet(wb, ws, "Salary Slip");
+            XLSX.writeFile(wb, `${r.user.name}_Salary_Slip.xlsx`);
+        }
+
+        async function downloadBulkExcel() {
+            const data = await fetchPayrollData();
+            if(!data) return;
+            const c = data.company;
+
+            const rows = [];
+            rows.push(["Employee Name", "Aadhar", "PAN", "PF Num", "Total Hrs", "Final Hrs", "Normal Pay", "OT Pay", "Sunday Pay", "Deductions", "Net Salary"]);
+
+            data.data.forEach(r => {
+                const calc = calcUserPayroll(r, c);
+                rows.push([
+                    r.user.name, r.user.adhar, r.user.pan, r.user.pfNumber,
+                    calc.totalHrs.toFixed(2), calc.finalHrs.toFixed(2),
+                    calc.normalPay.toFixed(2), calc.otPay.toFixed(2),
+                    calc.sundayPay.toFixed(2), calc.deductions.toFixed(2),
+                    calc.finalSalary.toFixed(2)
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Bulk Payroll");
+            XLSX.writeFile(wb, `${c.companyName}_Bulk_Payroll.xlsx`);
+        }
+
     </script>
 </body>
 </html>

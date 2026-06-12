@@ -77,6 +77,14 @@ const userSchema = new mongoose.Schema({
     title: String,
     date: String,
     status: String
+  }],
+  permanentAttendance: [{
+    date: String,
+    dateObj: Date,
+    isPresent: Boolean,
+    isSunday: Boolean,
+    hours: Number,
+    editableUntil: Date
   }]
 });
 const User = mongoose.model('User', userSchema);
@@ -117,6 +125,18 @@ const companySchema = new mongoose.Schema({
   passwordHash: String,
   salt: String,
   adocId: { type: String, unique: true },
+  baseSalary: { type: Number, default: 0 },
+  sundayRate: { type: Number, default: 0 },
+  otRate: { type: Number, default: 0 },
+  pfDeduct: { type: Number, default: 0 },
+  maintenanceFee: { type: Number, default: 0 },
+  busFee: { type: Number, default: 0 },
+  foodFee: { type: Number, default: 0 },
+  teaBreakTime: { type: Number, default: 0 },
+  teaBreakCount: { type: Number, default: 0 },
+  teaBreakDeductType: { type: String, default: 'none' }, // 'none', 'normal', 'ot'
+  lunchBreakTime: { type: Number, default: 0 },
+  lunchBreakDeductType: { type: String, default: 'none' }, // 'none', 'normal', 'ot'
   createdAt: { type: Date, default: Date.now }
 });
 const Company = mongoose.model('Company', companySchema);
@@ -253,7 +273,12 @@ app.post('/v1/upload', upload.single('image'), (req, res) => {
 
 // --- ADMIN ENDPOINTS ---
 app.post('/v1/admin/add-company', async (req, res) => {
-  const { name, location, email, password } = req.body;
+  const { 
+    name, location, email, password, 
+    baseSalary, sundayRate, otRate, pfDeduct, maintenanceFee, busFee, foodFee,
+    teaBreakTime, teaBreakCount, teaBreakDeductType,
+    lunchBreakTime, lunchBreakDeductType
+  } = req.body;
   if (!name || !email || !password) return res.json({ success: false, message: 'Name, Email and Password required' });
   try {
     const existing = await Company.findOne({ email });
@@ -266,7 +291,21 @@ app.post('/v1/admin/add-company', async (req, res) => {
     const passwordHash = bcrypt.hashSync(password, salt);
     const adocId = "COMP-" + Math.floor(1000 + Math.random() * 9000);
 
-    const newCompany = new Company({ companyName: name, location, email, passwordHash, salt, adocId });
+    const newCompany = new Company({ 
+      companyName: name, location, email, passwordHash, salt, adocId,
+      baseSalary: Number(baseSalary) || 0,
+      sundayRate: Number(sundayRate) || 0,
+      otRate: Number(otRate) || 0,
+      pfDeduct: Number(pfDeduct) || 0,
+      maintenanceFee: Number(maintenanceFee) || 0,
+      busFee: Number(busFee) || 0,
+      foodFee: Number(foodFee) || 0,
+      teaBreakTime: Number(teaBreakTime) || 0,
+      teaBreakCount: Number(teaBreakCount) || 0,
+      teaBreakDeductType: teaBreakDeductType || 'none',
+      lunchBreakTime: Number(lunchBreakTime) || 0,
+      lunchBreakDeductType: lunchBreakDeductType || 'none'
+    });
     await newCompany.save();
 
     res.json({ success: true, message: `Company registered successfully! Adoc ID: ${adocId}`, adocId });
@@ -285,6 +324,77 @@ app.delete('/v1/admin/delete-company/:id', async (req, res) => {
     await Company.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Company deleted successfully' });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.post('/v1/admin/permanent-employees', async (req, res) => {
+  const { companyName } = req.body;
+  try {
+    const users = await User.find({ permanentCompany: companyName });
+    res.json({ success: true, data: users });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.post('/v1/admin/submit-daily-attendance', async (req, res) => {
+  const { companyName, date, dateObj, attendanceData } = req.body; 
+  try {
+    const isSunday = new Date(dateObj).getDay() === 0;
+
+    for(let record of attendanceData) {
+      const user = await User.findOne({ email: record.userEmail, permanentCompany: companyName });
+      if(user) {
+        const existingIdx = user.permanentAttendance.findIndex(a => a.date === date);
+        if (existingIdx !== -1) {
+          if (new Date() > new Date(user.permanentAttendance[existingIdx].editableUntil)) {
+             continue; // Past 1 hour, locked
+          }
+          user.permanentAttendance[existingIdx].isPresent = record.isPresent;
+          user.permanentAttendance[existingIdx].hours = record.hours;
+          user.permanentAttendance[existingIdx].isSunday = isSunday;
+        } else {
+           user.permanentAttendance.push({
+             date: date,
+             dateObj: new Date(dateObj),
+             isPresent: record.isPresent,
+             isSunday: isSunday,
+             hours: record.hours,
+             editableUntil: new Date(Date.now() + 60 * 60 * 1000) // 1 hour edit window
+           });
+        }
+        await user.save();
+      }
+    }
+    res.json({ success: true, message: 'Daily attendance saved successfully!' });
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.post('/v1/admin/generate-payroll', async (req, res) => {
+  const { companyName, startDate, endDate } = req.body;
+  try {
+    const company = await Company.findOne({ companyName });
+    if (!company) return res.json({ success: false, message: 'Company not found' });
+
+    const users = await User.find({ permanentCompany: companyName });
+    const sDate = new Date(startDate); sDate.setHours(0,0,0,0);
+    const eDate = new Date(endDate); eDate.setHours(23,59,59,999);
+
+    const reportData = users.map(u => {
+      // Filter attendance within range
+      const validAttendance = u.permanentAttendance.filter(a => {
+        const d = new Date(a.dateObj);
+        return d >= sDate && d <= eDate;
+      });
+
+      return {
+        user: {
+          name: u.name, email: u.email, adhar: u.adhar, pan: u.pan, 
+          phone: u.phone, pfNumber: u.pfNumber || 'N/A'
+        },
+        attendance: validAttendance
+      };
+    });
+
+    res.json({ success: true, company, data: reportData });
+  } catch(e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
 // --- COMPANY PORTAL ENDPOINTS ---
