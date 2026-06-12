@@ -65,7 +65,7 @@
 
             <div class="grid">
                 <!-- Button 1: Post Job -->
-                <div class="admin-card" onclick="openModal('jobModal')">
+                <div class="admin-card" onclick="openJobModal()">
                     <i class="fa-solid fa-briefcase"></i>
                     <span>Post Job</span>
                 </div>
@@ -206,7 +206,9 @@
                 <option value="permanent">Permanent Job (Full Time)</option>
                 <option value="adoc">Adoc Job (1 Day Scan)</option>
             </select>
-            <input type="text" id="j-company" class="input" placeholder="Company Name (e.g. Google)">
+            <select id="j-company" class="input">
+                <option value="">Select a Registered Company</option>
+            </select>
             <input type="text" id="j-title" class="input" placeholder="Job Title (e.g. Software Engineer)">
             <textarea id="j-desc" class="input" placeholder="Job Description..."></textarea>
             <label style="display:block; margin: 10px 0 5px 0;">Upload Job Poster:</label>
@@ -523,6 +525,25 @@
                     loadCompanies();
                 }
             } catch (e) { alert('Error adding company'); }
+        }
+
+        async function openJobModal() {
+            try {
+                const res = await fetch('/v1/admin/companies');
+                const data = await res.json();
+                if(data.success && data.data && data.data.length > 0) {
+                    const select = document.getElementById('j-company');
+                    select.innerHTML = '<option value="">-- Select Company --</option>';
+                    data.data.forEach(c => {
+                        select.innerHTML += `<option value="${c.companyName}">${c.companyName}</option>`;
+                    });
+                    openModal('jobModal');
+                } else {
+                    alert("Aapke paas abhi tak koi registered company nahi hai! Pehle 'Add Company' se ek company jodiye tabhi aap job post kar payenge.");
+                }
+            } catch (e) {
+                alert('Failed to load companies for job posting');
+            }
         }
 
         async function postJob() {

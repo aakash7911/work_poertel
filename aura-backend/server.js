@@ -542,6 +542,9 @@ app.post('/v1/jobs/admin', async (req, res) => {
   if (!title || !companyName || !jobType) return res.json({ success: false, message: 'Title, Company Name, and Job Type are required' });
   
   try {
+    const existingCompany = await Company.findOne({ companyName });
+    if (!existingCompany) return res.json({ success: false, message: 'Sirf registered company ke liye hi job post ki ja sakti hai! Pehle company add karein.' });
+
     const newJob = new Job({
       id: Date.now().toString(),
       title, description: description || '', posterUrl: posterUrl || '', companyName, jobType
