@@ -6,6 +6,90 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const mongoose = require('mongoose');
+const crypto = require('crypto');
+
+// --- CUSTOM ULTRA-SECURE ENCRYPTION ENGINE ---
+// Yeh 32-character ki master key hai. Render dashboard me ENCRYPTION_KEY daalna zaroori hai.
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'AuraSuperSecretKey12345678901234'; 
+const IV_LENGTH = 16;
+
+// Yeh wo 10 Custom Variables hain. Aap inko yahan change kar sakte hain.
+const CUSTOM_SALTS = [
+  process.env.SALT_1 || "Xy$z",
+  process.env.SALT_2 || "Alpha9",
+  process.env.SALT_3 || "Z3r0#",
+  process.env.SALT_4 || "AuraSec",
+  process.env.SALT_5 || "Gh0st!",
+  process.env.SALT_6 || "T!t4n",
+  process.env.SALT_7 || "B3t4_",
+  process.env.SALT_8 || "N3xuS",
+  process.env.SALT_9 || "Krypt0",
+  process.env.SALT_10 || "Om3ga"
+];
+
+function encryptData(text) {
+  if (!text) return text;
+  text = text.toString();
+  try {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
+    let encrypted = cipher.update(text, 'utf8', 'base64');
+    encrypted += cipher.final('base64');
+    const authTag = cipher.getAuthTag().toString('base64');
+    
+    // Core encrypted string format
+    let base64Cipher = `${iv.toString('base64')}:${authTag}:${encrypted}`;
+    
+    // Chunking Har 3 letters ke baad
+    let chunks = [];
+    for (let i = 0; i < base64Cipher.length; i += 3) {
+      chunks.push(base64Cipher.substring(i, i + 3));
+    }
+    
+    let finalString = "ENC:"; // Prefix to identify our encrypted data
+    for (let i = 0; i < chunks.length; i++) {
+      finalString += chunks[i];
+      if (i < chunks.length - 1) {
+        const randomSalt = CUSTOM_SALTS[Math.floor(Math.random() * CUSTOM_SALTS.length)];
+        // Wrapping salt in | symbol to prevent corrupting Base64 during decryption
+        finalString += `|${randomSalt}|`; 
+      }
+    }
+    
+    return finalString;
+  } catch (e) {
+    console.error("Encryption Error", e);
+    return text;
+  }
+}
+
+function decryptData(encodedText) {
+  if (!encodedText || typeof encodedText !== 'string' || !encodedText.startsWith('ENC:')) {
+    return encodedText;
+  }
+  try {
+    // Remove the ENC: prefix and strip out all custom salts wrapped in |
+    let stripped = encodedText.substring(4).replace(/\|.*?\|/g, '');
+    
+    const parts = stripped.split(':');
+    if(parts.length !== 3) return encodedText;
+    
+    const iv = Buffer.from(parts[0], 'base64');
+    const authTag = Buffer.from(parts[1], 'base64');
+    const encryptedText = parts[2];
+    
+    const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedText, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
+  } catch (e) {
+    console.error("Decryption Error", e);
+    return encodedText;
+  }
+}
+// ----------------------------------------------
 
 const app = express();
 app.use(cors());
@@ -194,7 +278,7 @@ app.post('/v1/auth/verify-otp', async (req, res) => {
     
     try {
       await new User({
-        email: store.email, passwordHash, salt, name: store.name, isVerified: true,
+        email: store.email, passwordHash, salt, name: encryptData(store.name), isVerified: true,
         uid: `UID-${Math.floor(Math.random()*10000)}`,
         adhar: '', dob: '', bank: '', phone: '', uai: '', pan: '', profilePic: '',
         profileVerified: false, role: 'user', joinStatus: null, permanentCompany: null, adocHistory: []
@@ -341,7 +425,13 @@ app.post('/v1/admin/permanent-employees', async (req, res) => {
   const { companyName } = req.body;
   try {
     const users = await User.find({ permanentCompany: companyName });
-    res.json({ success: true, data: users });
+    const decryptedUsers = users.map(u => {
+      const uObj = u.toObject();
+      if(uObj.name) uObj.name = decryptData(uObj.name);
+      if(uObj.email) uObj.email = decryptData(uObj.email); // Actually we don't encrypt email, but if we did
+      return uObj;
+    });
+    res.json({ success: true, data: decryptedUsers });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
@@ -397,8 +487,12 @@ app.post('/v1/admin/generate-payroll', async (req, res) => {
 
       return {
         user: {
-          name: u.name, email: u.email, adhar: u.adhar, pan: u.pan, 
-          phone: u.phone, pfNumber: u.pfNumber || 'N/A'
+          name: decryptData(u.name), 
+          email: u.email, 
+          adhar: decryptData(u.adhar), 
+          pan: decryptData(u.pan), 
+          phone: decryptData(u.phone), 
+          pfNumber: decryptData(u.uai) || 'N/A'
         },
         attendance: validAttendance
       };
@@ -458,7 +552,12 @@ app.post('/v1/jobs/admin', async (req, res) => {
 app.get('/v1/admin/applications', async (req, res) => {
   try {
     const apps = await Application.find();
-    res.json({ success: true, data: apps });
+    const decryptedApps = apps.map(app => {
+      const aObj = app.toObject();
+      if(aObj.userInfo) aObj.userInfo = decryptData(aObj.userInfo);
+      return aObj;
+    });
+    res.json({ success: true, data: decryptedApps });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
@@ -515,9 +614,17 @@ app.get('/v1/admin/users', async (req, res) => {
   try {
     const users = await User.find();
     const usersList = users.map(u => ({
-      name: u.name, email: u.email, phone: u.phone, adhar: u.adhar, pan: u.pan,
-      uai: u.uai, dob: u.dob, profilePic: u.profilePic, role: u.role,
-      permanentCompany: u.permanentCompany || 'None', joinStatus: u.joinStatus || 'Not Joined'
+      name: decryptData(u.name), 
+      email: u.email, 
+      phone: decryptData(u.phone), 
+      adhar: decryptData(u.adhar), 
+      pan: decryptData(u.pan),
+      uai: decryptData(u.uai), 
+      dob: decryptData(u.dob), 
+      profilePic: u.profilePic, 
+      role: u.role,
+      permanentCompany: u.permanentCompany || 'None', 
+      joinStatus: u.joinStatus || 'Not Joined'
     }));
     res.json({ success: true, data: usersList });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
@@ -536,9 +643,11 @@ app.post('/v1/jobs/apply', async (req, res) => {
     if (user.permanentCompany) return res.json({ success: false, message: 'You are already joined. Join now adoc are preference.' });
     if (user.joinStatus === 'pending') return res.json({ success: false, message: 'Your application is already pending.' });
 
+    const rawUserInfo = `Name: ${decryptData(user.name)}, Phone: ${decryptData(user.phone)}, Aadhar: ${decryptData(user.adhar)}, PAN: ${decryptData(user.pan)}, UAN/PF: ${decryptData(user.uai)}, DOB: ${decryptData(user.dob)}, Bank: ${decryptData(user.bankName)} (${decryptData(user.bankAcc)}, IFSC: ${decryptData(user.ifsc)})`;
+
     await new Application({
       id: Date.now().toString(), userEmail, jobId, companyName: job.companyName, status: 'pending',
-      userInfo: `Name: ${user.name}, Phone: ${user.phone}, Aadhar: ${user.adhar}, PAN: ${user.pan}, UAN/PF: ${user.uai}, DOB: ${user.dob}, Bank: ${user.bankName} (${user.bankAcc}, IFSC: ${user.ifsc})`
+      userInfo: encryptData(rawUserInfo)
     }).save();
 
     user.joinStatus = 'pending';
@@ -746,6 +855,17 @@ app.post('/v1/profile/me', async (req, res) => {
         }
         return true;
       });
+      
+      // Decrypt sensitive info for the user to view
+      if(userObj.name) userObj.name = decryptData(userObj.name);
+      if(userObj.phone) userObj.phone = decryptData(userObj.phone);
+      if(userObj.adhar) userObj.adhar = decryptData(userObj.adhar);
+      if(userObj.pan) userObj.pan = decryptData(userObj.pan);
+      if(userObj.uai) userObj.uai = decryptData(userObj.uai);
+      if(userObj.dob) userObj.dob = decryptData(userObj.dob);
+      if(userObj.bankAcc) userObj.bankAcc = decryptData(userObj.bankAcc);
+      if(userObj.ifsc) userObj.ifsc = decryptData(userObj.ifsc);
+      if(userObj.bankName) userObj.bankName = decryptData(userObj.bankName);
 
       res.json({ success: true, data: userObj });
     } else {
@@ -760,7 +880,16 @@ app.post('/v1/profile/verify', async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.json({ success: false, message: 'User not found' });
 
-    user.phone = phone; user.adhar = adhar; user.pan = pan; user.uai = uai; user.dob = dob; user.bankAcc = bankAcc; user.ifsc = ifsc; user.bankName = bankName; user.profilePic = profilePic; user.profileVerified = true;
+    user.phone = encryptData(phone); 
+    user.adhar = encryptData(adhar); 
+    user.pan = encryptData(pan); 
+    user.uai = encryptData(uai); 
+    user.dob = encryptData(dob); 
+    user.bankAcc = encryptData(bankAcc); 
+    user.ifsc = encryptData(ifsc); 
+    user.bankName = encryptData(bankName); 
+    user.profilePic = profilePic; // Keep image URL as is
+    user.profileVerified = true;
     await user.save();
     res.json({ success: true, message: 'Profile verified successfully!' });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
