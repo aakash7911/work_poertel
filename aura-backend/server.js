@@ -170,6 +170,7 @@ const userSchema = new mongoose.Schema({
     isPresent: Boolean,
     isSunday: Boolean,
     hours: Number,
+    shiftType: String,
     editableUntil: Date
   }]
 });
@@ -213,6 +214,7 @@ const companySchema = new mongoose.Schema({
   salt: String,
   adocId: { type: String, unique: true },
   shiftPattern: String,
+  currentActiveShift: { type: String, default: 'Day' },
   nightAllowance: { type: Number, default: 0 },
   baseSalary: { type: Number, default: 0 },
   sundayRate: { type: Number, default: 0 },
@@ -450,8 +452,13 @@ app.post('/v1/admin/permanent-employees', async (req, res) => {
 });
 
 app.post('/v1/admin/submit-daily-attendance', async (req, res) => {
-  const { companyName, date, dateObj, attendanceData } = req.body; 
+  const { companyName, date, dateObj, shiftType, attendanceData } = req.body; 
   try {
+    // Update company's active shift
+    if (shiftType) {
+      await Company.updateOne({ companyName }, { $set: { currentActiveShift: shiftType } });
+    }
+
     const isSunday = new Date(dateObj).getDay() === 0;
 
     for(let record of attendanceData) {
@@ -465,6 +472,7 @@ app.post('/v1/admin/submit-daily-attendance', async (req, res) => {
           user.permanentAttendance[existingIdx].isPresent = record.isPresent;
           user.permanentAttendance[existingIdx].hours = record.hours;
           user.permanentAttendance[existingIdx].isSunday = isSunday;
+          if(shiftType) user.permanentAttendance[existingIdx].shiftType = shiftType;
         } else {
            user.permanentAttendance.push({
              date: date,
@@ -472,6 +480,7 @@ app.post('/v1/admin/submit-daily-attendance', async (req, res) => {
              isPresent: record.isPresent,
              isSunday: isSunday,
              hours: record.hours,
+             shiftType: shiftType || 'Day',
              editableUntil: new Date(Date.now() + 60 * 60 * 1000) // 1 hour edit window
            });
         }

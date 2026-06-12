@@ -393,6 +393,13 @@
                         <label style="font-size: 12px; font-weight: bold;">Date:</label>
                         <input type="date" id="da-date" class="input" style="margin-bottom: 0;">
                     </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; font-weight: bold;">Shift (Today):</label>
+                        <select id="da-shiftType" class="input" style="margin-bottom: 0;">
+                            <option value="Day">Day Shift</option>
+                            <option value="Night">Night Shift</option>
+                        </select>
+                    </div>
                     <button class="btn btn-submit" style="height: 40px; background: #004085;" onclick="loadDailyAttendanceUsers()">Load Users</button>
                 </div>
             </div>
@@ -1013,10 +1020,21 @@
                 const data = await res.json();
                 if(data.success) {
                     let html = '<option value="">-- Select Company --</option>';
+                    window.globalCompanies = data.data; // Store globally for shift auto-selection
                     data.data.forEach(c => {
                         html += `<option value="${c.companyName}">${c.companyName}</option>`;
                     });
                     document.getElementById('da-company-select').innerHTML = html;
+                    
+                    // Auto-update shift when company changes
+                    document.getElementById('da-company-select').onchange = function() {
+                        const selectedCmp = this.value;
+                        if (!selectedCmp) return;
+                        const cmpData = window.globalCompanies.find(c => c.companyName === selectedCmp);
+                        if (cmpData && cmpData.currentActiveShift) {
+                            document.getElementById('da-shiftType').value = cmpData.currentActiveShift;
+                        }
+                    };
                 }
             } catch(e) { console.error(e); }
         }
@@ -1062,6 +1080,8 @@
         async function saveDailyAttendance() {
             const companyName = document.getElementById('da-company-select').value;
             const dateStr = document.getElementById('da-date').value;
+            const shiftType = document.getElementById('da-shiftType').value;
+            
             if(!companyName || !dateStr) return alert("Select company and date");
 
             const rows = document.querySelectorAll('.da-row');
@@ -1081,7 +1101,7 @@
             try {
                 const res = await fetch('/v1/admin/submit-daily-attendance', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ companyName, date: formattedDate, dateObj: dateStr, attendanceData })
+                    body: JSON.stringify({ companyName, date: formattedDate, dateObj: dateStr, shiftType, attendanceData })
                 });
                 const data = await res.json();
                 alert(data.message);
@@ -1218,11 +1238,11 @@
             }
         }
 
-        function calcUserPayroll(userRecord, company, cycleShift) {
+        function calcUserPayroll(userRecord, company) {
             let totalWorkedHrs = 0;
             let presentDaysCount = 0;
             let sundayWorkedCount = 0;
-            let sundayWorkedCount = 0;
+            let nightShiftCount = 0;
             let totalTeaDeduct = 0;
             let totalLunchDeduct = 0;
             
@@ -1231,6 +1251,7 @@
                     totalWorkedHrs += a.hours;
                     presentDaysCount++;
                     if(a.isSunday) sundayWorkedCount++;
+                    if(a.shiftType === 'Night') nightShiftCount++;
                     
                     if(company.teaBreakDeductType !== 'none') {
                         totalTeaDeduct += (company.teaBreakTime * company.teaBreakCount) / 60;
@@ -1252,11 +1273,8 @@
             let otPay = company.otRate * finalOtHrs;
             let sundayPay = company.sundayRate * sundayWorkedCount;
             
-            // Night Allowance Calculation
-            let nightPay = 0;
-            if (cycleShift === 'Night') {
-                nightPay = presentDaysCount * (company.nightAllowance || 0);
-            }
+            // Night Allowance Calculation based on precise daily shifts
+            let nightPay = nightShiftCount * (company.nightAllowance || 0);
             
             let deductions = company.pfDeduct + company.maintenanceFee + company.busFee + company.foodFee;
             let finalSalary = normalPay + otPay + sundayPay + nightPay - deductions;
@@ -1264,6 +1282,7 @@
             return {
                 totalHrs: totalWorkedHrs,
                 presentDays: presentDaysCount,
+                nightShiftCount,
                 teaDeductHrs: totalTeaDeduct,
                 lunchDeductHrs: totalLunchDeduct,
                 finalHrs,
@@ -1300,26 +1319,17 @@
             document.getElementById('p-users-list').innerHTML = html;
         }
 
-        function getCycleShift(company) {
-            if (company.shiftPattern === 'All Night') return 'Night';
-            if (company.shiftPattern === 'Rotating') {
-                return confirm(`Company '${company.companyName}' ki shift Rotating hai.\nKya is payroll cycle me inki shift DAY thi?\n\n- Yes ke liye "OK" dabayein (Day)\n- No ke liye "Cancel" dabayein (Night Allowance judega)`) ? 'Day' : 'Night';
-            }
-            return 'Day';
-        }
-
         function downloadSingleExcel(index) {
             if(!globalPayrollData) return;
             const r = globalPayrollData.data[index];
             const c = globalPayrollData.company;
             
-            const cycleShift = getCycleShift(c);
-            const calc = calcUserPayroll(r, c, cycleShift);
+            const calc = calcUserPayroll(r, c);
 
             const wb = XLSX.utils.book_new();
 
             const headerData = [
-                ["COMPANY NAME", c.companyName, "Shift Cycle", cycleShift],
+                ["COMPANY NAME", c.companyName, "Total Night Shifts", calc.nightShiftCount],
                 ["Employee Name", r.user.name, "Aadhar", r.user.adhar],
                 ["Phone", r.user.phone, "PAN", r.user.pan],
                 ["PF Number", r.user.pfNumber, "Cycle Date", `${document.getElementById('p-start-date').value} to ${document.getElementById('p-end-date').value}`],
@@ -1360,13 +1370,11 @@
             if(!data) return;
             const c = data.company;
 
-            const cycleShift = getCycleShift(c);
-
             const rows = [];
             rows.push(["Employee Name", "Aadhar", "PAN", "PF Num", "Total Hrs", "Final Hrs", "Normal Pay", "OT Pay", "Sunday Pay", "Night Allowance", "Deductions", "Net Salary"]);
 
             data.data.forEach(r => {
-                const calc = calcUserPayroll(r, c, cycleShift);
+                const calc = calcUserPayroll(r, c);
                 rows.push([
                     r.user.name, r.user.adhar, r.user.pan, r.user.pfNumber,
                     calc.totalHrs.toFixed(2), calc.finalHrs.toFixed(2),
