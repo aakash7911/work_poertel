@@ -107,9 +107,9 @@
                 </div>
 
                 <!-- Button 8: Adoc Management -->
-                <div class="admin-card" onclick="alert('Adoc Management feature coming soon!')">
-                    <i class="fa-solid fa-file-contract"></i>
-                    <span>Adoc Mgmt<br><small>(TBD)</small></span>
+                <div class="admin-card" onclick="openAdocBillModal()">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span>Adoc Bill Slip<br><small>(Generate)</small></span>
                 </div>
 
                 <!-- Button 9: Settings -->
@@ -298,6 +298,27 @@
             </div>
             <div class="btn-row">
                 <button class="btn btn-cancel" onclick="closeModal('usersModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADOC BILL SLIP MODAL -->
+    <div class="modal" id="adocBillModal">
+        <div class="modal-content" style="max-width: 500px; width: 95%;">
+            <h3>Generate Adoc Bill Slip</h3>
+            <p style="font-size: 14px; color: #555; margin-bottom: 15px;">Sirf registered company aur date select karein jinka adoc payment successful ya pending hai.</p>
+            
+            <label style="font-weight: bold; font-size: 14px;">Select Company:</label>
+            <select id="bill-company" class="input">
+                <option value="">Loading...</option>
+            </select>
+
+            <label style="font-weight: bold; font-size: 14px; margin-top: 10px; display: block;">Select Date:</label>
+            <input type="date" id="bill-date" class="input">
+
+            <div class="btn-row" style="margin-top: 20px;">
+                <button class="btn btn-cancel" onclick="closeModal('adocBillModal')">Cancel</button>
+                <button class="btn btn-submit" onclick="generateAdocBill()">Generate Excel</button>
             </div>
         </div>
     </div>
@@ -1102,6 +1123,85 @@
                     alert(data.message); return null;
                 }
             } catch(e) { alert("Error fetching data"); return null; }
+        }
+
+        async function openAdocBillModal() {
+            try {
+                const res = await fetch('/v1/admin/companies');
+                const data = await res.json();
+                if(data.success && data.data && data.data.length > 0) {
+                    const select = document.getElementById('bill-company');
+                    select.innerHTML = '<option value="">-- Select Company --</option>';
+                    data.data.forEach(c => {
+                        select.innerHTML += `<option value="${c.companyName}">${c.companyName}</option>`;
+                    });
+                    
+                    // Set default date to today
+                    document.getElementById('bill-date').value = new Date().toISOString().split('T')[0];
+                    openModal('adocBillModal');
+                } else {
+                    alert("Koi company registered nahi hai!");
+                }
+            } catch (e) {
+                alert('Error loading companies');
+            }
+        }
+
+        async function generateAdocBill() {
+            const companyName = document.getElementById('bill-company').value;
+            const rawDate = document.getElementById('bill-date').value;
+
+            if(!companyName || !rawDate) {
+                return alert("Company aur Date dono zaroori hain!");
+            }
+
+            // Convert rawDate (YYYY-MM-DD) to (DD/MM/YYYY) format to match DB if it was saved that way.
+            // In our system, Adoc date is usually saved as DD/MM/YYYY from frontend JS.
+            const dateObj = new Date(rawDate);
+            const formattedDate = dateObj.toLocaleDateString('en-GB'); // DD/MM/YYYY
+
+            try {
+                const res = await fetch('/v1/admin/adoc/bill-slip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyName, date: formattedDate })
+                });
+                const data = await res.json();
+
+                if(data.success && data.data.length > 0) {
+                    // Generate Excel
+                    const headers = ["Name", "Aadhar Number", "Phone Number", "Bank Name", "Account Number", "IFSC", "App UID", "Shift Type", "Hours", "Payment Status"];
+                    const rows = [headers];
+
+                    data.data.forEach(record => {
+                        rows.push([
+                            record.name || 'N/A',
+                            record.adhar || 'N/A',
+                            record.phone || 'N/A',
+                            record.bankName || 'N/A',
+                            record.bankAcc || 'N/A',
+                            record.ifsc || 'N/A',
+                            record.uid || 'N/A',
+                            record.timing || 'N/A',
+                            record.hours || '0',
+                            record.paymentStatus || 'N/A'
+                        ]);
+                    });
+
+                    const ws = XLSX.utils.aoa_to_sheet(rows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Adoc Bill Slip");
+
+                    // File name looks like: Adoc_Google_15_06_2026.xlsx
+                    const safeDate = formattedDate.replace(/\//g, '_');
+                    XLSX.writeFile(wb, `Adoc_${companyName}_${safeDate}.xlsx`);
+                    closeModal('adocBillModal');
+                } else {
+                    alert(`Date: ${formattedDate} ko Company: ${companyName} mein kisi adoc worker ka record nahi mila.`);
+                }
+            } catch(e) {
+                alert("API Error");
+            }
         }
 
         function calcUserPayroll(userRecord, company) {

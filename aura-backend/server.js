@@ -915,6 +915,41 @@ app.post('/v1/profile/verify', async (req, res) => {
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
+app.post('/v1/admin/adoc/bill-slip', async (req, res) => {
+  const { companyName, date } = req.body;
+  if (!companyName || !date) return res.json({ success: false, message: 'Company aur Date dono required hain' });
+  
+  try {
+    const users = await User.find({ "adocHistory.company": companyName, "adocHistory.date": date });
+    
+    let records = [];
+    users.forEach(u => {
+      u.adocHistory.forEach(a => {
+        if (a.company === companyName && a.date === date) {
+          records.push({
+            name: decryptData(u.name),
+            uid: u.uid || 'N/A',
+            phone: decryptData(u.phone),
+            adhar: decryptData(u.adhar),
+            bankAcc: decryptData(u.bankAcc),
+            ifsc: decryptData(u.ifsc),
+            bankName: decryptData(u.bankName),
+            timing: a.timing || 'N/A',
+            hours: a.hours || 0,
+            paymentStatus: a.paymentStatus
+          });
+        }
+      });
+    });
+
+    if(records.length === 0) return res.json({ success: false, message: 'Is din is company me koi adoc record nahi mila' });
+
+    res.json({ success: true, data: records });
+  } catch (e) {
+    res.json({ success: false, message: 'DB Error' });
+  }
+});
+
 app.get('/v1/admin/adoc/payments', async (req, res) => {
   try {
     const users = await User.find({ "adocHistory.paymentStatus": 'Pending' });
@@ -924,12 +959,12 @@ app.get('/v1/admin/adoc/payments', async (req, res) => {
         if (a.paymentStatus === 'Pending') {
           records.push({
             userEmail: u.email,
-            userName: u.name,
-            mobile: u.phone,
-            adhar: u.adhar,
-            bankName: u.bankName,
-            bankAcc: u.bankAcc,
-            ifsc: u.ifsc,
+            userName: decryptData(u.name),
+            mobile: decryptData(u.phone),
+            adhar: decryptData(u.adhar),
+            bankName: decryptData(u.bankName),
+            bankAcc: decryptData(u.bankAcc),
+            ifsc: decryptData(u.ifsc),
             company: a.company,
             title: a.title,
             date: a.date,
@@ -938,7 +973,7 @@ app.get('/v1/admin/adoc/payments', async (req, res) => {
             paymentStatus: a.paymentStatus,
             jobId: a.jobId,
             historyId: a._id,
-            isValid: a.isValid
+            help: a.help
           });
         }
       });
