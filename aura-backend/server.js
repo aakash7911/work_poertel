@@ -321,8 +321,19 @@ app.get('/v1/admin/companies', async (req, res) => {
 
 app.delete('/v1/admin/delete-company/:id', async (req, res) => {
   try {
+    const company = await Company.findById(req.params.id);
+    if (!company) return res.json({ success: false, message: 'Company not found' });
+
+    // Release all users attached to this company
+    await User.updateMany(
+      { permanentCompany: company.companyName },
+      { $set: { permanentCompany: null, joinStatus: null } }
+    );
+
+    // Now delete the company
     await Company.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Company deleted successfully' });
+    
+    res.json({ success: true, message: 'Company deleted and all its users have been released successfully' });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
