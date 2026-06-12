@@ -138,8 +138,14 @@
 
                 <!-- Button 13: Payroll & Excel -->
                 <div class="admin-card" onclick="openPayrollModal()">
-                    <i class="fa-solid fa-file-excel"></i>
-                    <span>Payroll & Excel<br><small>(Permanent)</small></span>
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Payroll / Excel<br><small>(Generate)</small></span>
+                </div>
+
+                <!-- Button 14: Security Test -->
+                <div class="admin-card" onclick="testDatabaseSecurity()" style="background: linear-gradient(135deg, #d32f2f, #9a0007);">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Security Test<br><small>(View Raw DB)</small></span>
                 </div>
             </div>
         </div>
@@ -1217,6 +1223,31 @@
             XLSX.writeFile(wb, `${c.companyName}_Bulk_Payroll.xlsx`);
         }
 
-    </script>
+        async function testDatabaseSecurity() {
+        try {
+            const res = await fetch(`${API_BASE}/v1/admin/raw-db-view`);
+            const data = await res.json();
+            if(data.success) {
+                const info = `
+RAW DATABASE PREVIEW (Hacker's View) 🛡️:
+-------------------------------------------
+Aapne jo database me encryption lagaya hai wo kaisa dikhta hai bina decrypt kiye:
+
+Name: ${data.data.name}
+Phone: ${data.data.phone}
+Adhar: ${data.data.adhar}
+
+Dekhiye data kaise lamba aur ajeeb (Garbage) ho gaya hai aapke SALTS ke karan!
+Isko padhna ya reverse karna namumkin hai.
+                `;
+                alert(info);
+            } else {
+                alert("Koi user nahi mila test karne ke liye. Pehle ek user register karein.");
+            }
+        } catch(e) {
+            alert("API Error");
+        }
+    }
+</script>
 </body>
 </html>

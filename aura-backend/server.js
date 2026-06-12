@@ -632,6 +632,21 @@ app.get('/v1/admin/users', async (req, res) => {
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
+app.get('/v1/admin/raw-db-view', async (req, res) => {
+  try {
+    // Return one user who is not admin, unencrypted, to show what the DB actually stores
+    const user = await User.findOne({ role: 'user' }).lean(); // .lean() gets raw document
+    if (!user) return res.json({ success: false, message: 'No users found in database to show.' });
+    
+    res.json({ success: true, data: {
+      name: user.name,
+      phone: user.phone,
+      adhar: user.adhar,
+      pan: user.pan
+    }});
+  } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
 // --- USER ENDPOINTS ---
 app.post('/v1/jobs/apply', async (req, res) => {
   const { userEmail, jobId } = req.body;
