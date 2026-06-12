@@ -9,22 +9,20 @@ const mongoose = require('mongoose');
 const crypto = require('crypto');
 
 // --- CUSTOM ULTRA-SECURE ENCRYPTION ENGINE ---
-// Yeh 32-character ki master key hai. Render dashboard me ENCRYPTION_KEY daalna zaroori hai.
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'AuraSuperSecretKey12345678901234'; 
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY; 
 const IV_LENGTH = 16;
 
-// Yeh wo 10 Custom Variables hain. Aap inko yahan change kar sakte hain.
 const CUSTOM_SALTS = [
-  process.env.SALT_1 || "Xy$z",
-  process.env.SALT_2 || "Alpha9",
-  process.env.SALT_3 || "Z3r0#",
-  process.env.SALT_4 || "AuraSec",
-  process.env.SALT_5 || "Gh0st!",
-  process.env.SALT_6 || "T!t4n",
-  process.env.SALT_7 || "B3t4_",
-  process.env.SALT_8 || "N3xuS",
-  process.env.SALT_9 || "Krypt0",
-  process.env.SALT_10 || "Om3ga"
+  process.env.SALT_1,
+  process.env.SALT_2,
+  process.env.SALT_3,
+  process.env.SALT_4,
+  process.env.SALT_5,
+  process.env.SALT_6,
+  process.env.SALT_7,
+  process.env.SALT_8,
+  process.env.SALT_9,
+  process.env.SALT_10
 ];
 
 function encryptData(text) {
