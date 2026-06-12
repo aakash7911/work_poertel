@@ -337,59 +337,6 @@ app.delete('/v1/admin/delete-company/:id', async (req, res) => {
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
 });
 
-app.get('/v1/admin/fix-orphan-users', async (req, res) => {
-  try {
-    const users = await User.find({ permanentCompany: { $ne: null } });
-    let fixedCount = 0;
-
-    for (let u of users) {
-      const comp = await Company.findOne({ companyName: u.permanentCompany });
-      if (!comp) {
-        u.permanentCompany = null;
-        u.joinStatus = null;
-        await u.save();
-        fixedCount++;
-      }
-    }
-    res.json({ success: true, message: `Cleanup complete. Fixed ${fixedCount} users who were stuck in deleted companies.` });
-  } catch (e) { res.json({ success: false, message: e.message }); }
-});
-
-app.get('/v1/admin/nuke-database', async (req, res) => {
-  try {
-    // Delete all users EXCEPT the admin account
-    await User.deleteMany({ email: { $ne: 'admin@aura.com' } });
-    
-    // Delete all companies, jobs, applications, resignations
-    await Company.deleteMany({});
-    await Job.deleteMany({});
-    await Application.deleteMany({});
-    await Resignation.deleteMany({});
-
-    // Clear any residual history from the admin account if testing was done via admin
-    const admin = await User.findOne({ email: 'admin@aura.com' });
-    if (admin) {
-      admin.adocHistory = [];
-      admin.permanentHistory = [];
-      admin.permanentAttendance = [];
-      admin.joinStatus = null;
-      admin.permanentCompany = null;
-      await admin.save();
-    }
-
-    res.send(`
-      <div style="font-family: sans-serif; text-align: center; margin-top: 50px;">
-        <h1 style="color: red;">Database Nuked Successfully 💥</h1>
-        <p>Saara testing data uda diya gaya hai (Users, Companies, Jobs, Attendance sab kuch clean ho gaya hai).</p>
-        <p>Sirf 'admin@aura.com' (password: admin123) account bacha hai.</p>
-        <a href="/" style="display:inline-block; padding:10px 20px; background:blue; color:white; text-decoration:none; border-radius:5px; margin-top:20px;">Wapas Login Par Jayein</a>
-      </div>
-    `);
-  } catch (e) {
-    res.send('<h1>Error nuking database: ' + e.message + '</h1>');
-  }
-});
-
 app.post('/v1/admin/permanent-employees', async (req, res) => {
   const { companyName } = req.body;
   try {
