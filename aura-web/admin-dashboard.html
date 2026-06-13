@@ -112,10 +112,10 @@
                     <span>Adoc Bill Slip<br><small>(Generate)</small></span>
                 </div>
 
-                <!-- Button 9: Settings -->
-                <div class="admin-card" onclick="alert('Settings feature coming soon!')">
-                    <i class="fa-solid fa-gear"></i>
-                    <span>Settings<br><small>(TBD)</small></span>
+                <!-- Button 9: Ban User -->
+                <div class="admin-card" onclick="openBanUserModal()" style="border: 2px solid #dc3545;">
+                    <i class="fa-solid fa-ban" style="color: #dc3545;"></i>
+                    <span style="color: #dc3545;">Ban User<br><small>(Permanent Delete)</small></span>
                 </div>
 
                 <!-- Button 10: All Users -->
@@ -471,6 +471,36 @@
         </div>
     </div>
 
+    <!-- BAN USER MODAL -->
+    <div class="modal" id="banUserModal">
+        <div class="modal-content" style="border-top: 4px solid #dc3545;">
+            <h3 style="color: #dc3545;">Ban User Permanently</h3>
+            <p style="font-size:12px; color:#666; margin-bottom:15px;">Warning: This will delete the user's account and all data permanently. They will never be able to register with this email again.</p>
+            
+            <input type="email" id="ban-email" class="input" placeholder="Enter user's exact email address">
+            <button class="btn btn-submit" style="width: 100%; background:#dc3545; color:white; margin-bottom:15px;" onclick="banUser()">PERMANENTLY BAN USER</button>
+
+            <h4 style="margin-bottom: 10px;">Banned Email List</h4>
+            <div style="max-height: 200px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #f0f0f0;">
+                            <th style="padding: 8px; border: 1px solid #ccc;">Banned Email</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">Ban Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="banned-users-list">
+                        <tr><td colspan="2" style="text-align:center; padding:10px;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="btn-row" style="margin-top: 15px;">
+                <button class="btn btn-cancel" onclick="closeModal('banUserModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function logout() {
             window.location.href = '/login.html';
@@ -482,6 +512,59 @@
 
         function closeModal(id) {
             document.getElementById(id).classList.remove('active');
+        }
+
+        // --- BAN USER LOGIC ---
+        async function openBanUserModal() {
+            openModal('banUserModal');
+            document.getElementById('ban-email').value = '';
+            loadBannedUsers();
+        }
+
+        async function loadBannedUsers() {
+            document.getElementById('banned-users-list').innerHTML = '<tr><td colspan="2" style="text-align:center; padding:10px;">Loading...</td></tr>';
+            try {
+                const res = await fetch('/v1/admin/banned-users');
+                const data = await res.json();
+                if (data.success) {
+                    if (data.data.length === 0) {
+                        document.getElementById('banned-users-list').innerHTML = '<tr><td colspan="2" style="text-align:center; padding:10px;">No banned users found.</td></tr>';
+                        return;
+                    }
+                    let html = '';
+                    data.data.forEach(b => {
+                        const d = new Date(b.bannedAt).toLocaleString('en-GB');
+                        html += `<tr>
+                            <td style="padding: 8px; border: 1px solid #ccc; color: #dc3545; font-weight:bold;">${b.email}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${d}</td>
+                        </tr>`;
+                    });
+                    document.getElementById('banned-users-list').innerHTML = html;
+                }
+            } catch(e) {
+                document.getElementById('banned-users-list').innerHTML = '<tr><td colspan="2" style="text-align:center; padding:10px;">Error loading data</td></tr>';
+            }
+        }
+
+        async function banUser() {
+            const email = document.getElementById('ban-email').value.trim();
+            if(!email) return alert('Please enter an email address');
+
+            if(!confirm(`Are you sure you want to PERMANENTLY BAN ${email}? This action CANNOT be undone.`)) return;
+
+            try {
+                const res = await fetch('/v1/admin/ban-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                alert(data.message);
+                if(data.success) {
+                    document.getElementById('ban-email').value = '';
+                    loadBannedUsers();
+                }
+            } catch(e) { alert('Error banning user'); }
         }
 
         async function loadCompanies() {

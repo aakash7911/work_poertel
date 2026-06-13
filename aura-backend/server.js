@@ -232,6 +232,12 @@ const companySchema = new mongoose.Schema({
 });
 const Company = mongoose.model('Company', companySchema);
 
+const bannedUserSchema = new mongoose.Schema({
+  email: { type: String, unique: true, required: true },
+  bannedAt: { type: Date, default: Date.now }
+});
+const BannedUser = mongoose.model('BannedUser', bannedUserSchema);
+
 // CREATE ADMIN IF NOT EXISTS
 async function seedAdmin() {
   if (!process.env.MONGODB_URI) return;
@@ -262,6 +268,9 @@ app.post('/v1/auth/register', async (req, res) => {
   if (!name || !email || !password) return res.json({ success: false, message: 'All fields are required' });
 
   try {
+    const isBanned = await BannedUser.findOne({ email });
+    if (isBanned) return res.json({ success: false, message: 'This email is permanently banned.' });
+
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.json({ success: false, message: 'Email already registered' });
 
@@ -435,6 +444,44 @@ app.delete('/v1/admin/delete-company/:id', async (req, res) => {
     
     res.json({ success: true, message: 'Company deleted and all its users have been released successfully' });
   } catch (e) { res.json({ success: false, message: 'DB Error' }); }
+});
+
+app.post('/v1/admin/ban-user', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.json({ success: false, message: 'Email is required' });
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.json({ success: false, message: 'User not found in system' });
+
+    if (user.role === 'admin') return res.json({ success: false, message: 'Cannot ban an admin' });
+
+    // 1. Add to BannedUser collection
+    const existingBan = await BannedUser.findOne({ email });
+    if (!existingBan) {
+      await new BannedUser({ email }).save();
+    }
+
+    // 2. Delete all applications & resignations
+    await Application.deleteMany({ userEmail: email });
+    await Resignation.deleteMany({ userEmail: email });
+
+    // 3. Delete the user
+    await User.findOneAndDelete({ email });
+
+    res.json({ success: true, message: `User ${email} permanently banned and all data deleted.` });
+  } catch(e) {
+    res.json({ success: false, message: 'DB Error' });
+  }
+});
+
+app.get('/v1/admin/banned-users', async (req, res) => {
+  try {
+    const banned = await BannedUser.find({}).sort({ bannedAt: -1 });
+    res.json({ success: true, data: banned });
+  } catch(e) {
+    res.json({ success: false, message: 'DB Error' });
+  }
 });
 
 app.post('/v1/admin/permanent-employees', async (req, res) => {
