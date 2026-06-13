@@ -185,7 +185,7 @@
         let permanentWorkersData = [];
 
         if(!companyEmail) {
-            window.location.href = '/login.html';
+            window.location.replace('/login.html');
         }
 
         document.getElementById('c-name').innerText = companyName || 'Company Portal';
@@ -193,7 +193,7 @@
 
         function logout() {
             localStorage.clear();
-            window.location.href = '/login.html';
+            window.location.replace('/login.html');
         }
 
         function openModal(id) {

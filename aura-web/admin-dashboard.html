@@ -503,7 +503,8 @@
 
     <script>
         function logout() {
-            window.location.href = '/login.html';
+            localStorage.clear();
+            window.location.replace('/login.html');
         }
 
         function openModal(id) {

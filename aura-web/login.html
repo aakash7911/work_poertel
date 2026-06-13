@@ -209,14 +209,15 @@
                 
                 if(data.success) {
                     localStorage.setItem('userEmail', email); // Save email for profile fetches
+                    localStorage.setItem('userRole', data.role); // Save role for auto-redirects
                     if(data.role === 'admin') {
-                        window.location.href = '/admin-dashboard.html';
+                        window.location.replace('/admin-dashboard.html');
                     } else if(data.role === 'company') {
                         localStorage.setItem('companyName', data.companyName);
                         localStorage.setItem('adocId', data.adocId);
-                        window.location.href = '/company-dashboard.html';
+                        window.location.replace('/company-dashboard.html');
                     } else {
-                        window.location.href = '/dashboard.html';
+                        window.location.replace('/dashboard.html');
                     }
                 } else {
                     alert(data.message);
@@ -291,8 +292,17 @@
             if(data.success) switchView('login');
         }
 
-        // Init
-        switchView('login');
+        // Init: Auto-redirect if already logged in
+        const savedEmail = localStorage.getItem('userEmail');
+        const savedRole = localStorage.getItem('userRole');
+        
+        if (savedEmail && savedRole) {
+            if (savedRole === 'admin') window.location.replace('/admin-dashboard.html');
+            else if (savedRole === 'company') window.location.replace('/company-dashboard.html');
+            else window.location.replace('/dashboard.html');
+        } else {
+            switchView('login');
+        }
     </script>
 </body>
 </html>

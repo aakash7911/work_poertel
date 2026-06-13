@@ -319,8 +319,8 @@
         }
 
         function logout() {
-            localStorage.removeItem('userEmail');
-            window.location.href = '/login.html';
+            localStorage.clear();
+            window.location.replace('/login.html');
         }
 
         function switchTab(tabId, el) {
